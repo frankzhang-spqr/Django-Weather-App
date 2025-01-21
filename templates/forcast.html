@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather for {{ title }}</title>
+    <title>Forecast for {{ forecast.city.name }}</title>
     <link href="{{ url_for('static', filename='styles/style.css') }}" rel="stylesheet">
-    <script src="{{ url_for('static', filename='scripts/app.js') }}" defer></script>
 </head>
 <body>
-    <h1>Weather in {{ title }}</h1>
-    <p>Status: {{ status }}</p>
-    <p>Temperature: {{ temp }}&deg;{{ 'F' if units == 'imperial' else 'C' }}</p>
-    <p>Feels like: {{ feels_like }}&deg;{{ 'F' if units == 'imperial' else 'C' }}</p>
-    <img src="http://openweathermap.org/img/wn/{{ icon }}.png" alt="{{ status }}">
-   
-    <form action="/weather" id="weather-form">
-        <input type="text" name="city" id="city" placeholder="Enter a City" required>
+    <h1>Weather Forecast for {{ forecast.city.name }}</h1>
+    <ul>
+        {% for item in forecast.list[:5] %}
+        <li>
+            <p>{{ item.dt_txt }}: {{ item.weather[0].description.capitalize() }}</p>
+            <p>Temperature: {{ item.main.temp }} &deg;{{ 'F' if units == 'imperial' else 'C' }}</p>
+        </li>
+        {% endfor %}
+    </ul>
+    <form action="/weather">
+        <input type="text" name="city" id="city" placeholder="Enter a City">
         <label for="units">Select Units:</label>
         <select name="units" id="units">
             <option value="imperial" {% if units == 'imperial' %}selected{% endif %}>Fahrenheit</option>
@@ -25,3 +27,4 @@
     </form>
 </body>
 </html>
+
