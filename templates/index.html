@@ -10,10 +10,40 @@
 <body>
     <div class="container">
         <div class="weather-card">
+            <div class="auth-nav">
+                {% if current_user.is_authenticated %}
+                    <span class="welcome-text">Welcome, {{ current_user.username }}!</span>
+                    <a href="{{ url_for('logout') }}" class="auth-link">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="auth-link">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                    <a href="{{ url_for('register') }}" class="auth-link">
+                        <i class="fas fa-user-plus"></i> Register
+                    </a>
+                {% endif %}
+            </div>
+
             <div class="weather-header">
                 <h1>Weather Dashboard</h1>
                 <p class="current-date">{{ current_date }}</p>
             </div>
+
+            {% if current_user.is_authenticated and current_user.favorite_cities %}
+                <div class="favorite-cities">
+                    <h3>Your Favorite Cities</h3>
+                    <div class="favorite-grid">
+                        {% for city in current_user.favorite_cities %}
+                            <a href="{{ url_for('get_weather', city=city, units='imperial') }}" class="favorite-city">
+                                <i class="fas fa-star"></i>
+                                {{ city }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
 
             <form action="/weather" id="weather-form" class="search-form">
                 <div class="search-container">
@@ -48,6 +78,15 @@
                 <a href="/weather" class="active">Current Weather</a>
                 <a href="/forecast">5-Day Forecast</a>
             </nav>
+
+            {% if not current_user.is_authenticated %}
+                <div class="auth-prompt">
+                    <p>
+                        <i class="fas fa-info-circle"></i>
+                        Login or register to save your favorite cities!
+                    </p>
+                </div>
+            {% endif %}
         </div>
     </div>
 

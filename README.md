@@ -9,6 +9,8 @@ A modern and responsive Flask web application that provides real-time weather in
 - 🔍 **Smart Search**: City search with autocomplete suggestions
 - 🌡️ **Unit Conversion**: Toggle between Fahrenheit and Celsius
 - 📅 **5-Day Forecast**: View detailed weather forecasts
+- 👤 **User Authentication**: Secure login and registration system
+- ⭐ **Favorite Cities**: Save and manage your favorite locations
 - 📱 **Responsive Design**: Works seamlessly on desktop and mobile devices
 - 🎨 **Modern UI**: Clean and intuitive interface with smooth animations
 
@@ -35,9 +37,11 @@ Access the live application here: https://flask-weather-app-b3d4.onrender.com
    pip install -r requirements.txt
    ```
 
-4. Create a `.env` file in the root directory and add your OpenWeather API key:
+4. Create a `.env` file in the root directory and add your environment variables:
    ```
-   API_KEY=your_api_key_here
+   API_KEY=your_openweather_api_key
+   SECRET_KEY=your_secret_key
+   FLASK_ENV=development
    ```
    Get your API key from [OpenWeather](https://openweathermap.org/api)
 
@@ -48,11 +52,38 @@ Access the live application here: https://flask-weather-app-b3d4.onrender.com
 
 6. Open your browser and navigate to `http://localhost:8000`
 
-## Key Features Explained
+## Deployment to Render.com
 
-### Geolocation
-- Click the "Use My Location" button to automatically fetch weather for your current location
-- Falls back to manual city search if geolocation is unavailable
+1. Create a new account on [Render](https://render.com) if you haven't already.
+
+2. Create a new Web Service:
+   - Connect your GitHub repository
+   - Select the branch to deploy
+   - Choose "Python 3" as the environment
+   - Set the build command: `pip install -r requirements.txt`
+   - Set the start command: `gunicorn server:app`
+
+3. Add Environment Variables in Render Dashboard:
+   - `API_KEY`: Your OpenWeather API key
+   - `SECRET_KEY`: A secure random string for session management
+   - `FLASK_ENV`: Set to "production"
+   - `DATABASE_URL`: Will be automatically added by Render when you add PostgreSQL
+
+4. Add PostgreSQL Database:
+   - Go to "New +" in Render Dashboard
+   - Select "PostgreSQL"
+   - Connect it to your web service
+   - The `DATABASE_URL` will be automatically added to your web service
+
+5. Deploy your application.
+
+## Features in Detail
+
+### User Authentication
+- Secure registration and login system
+- Password encryption and validation
+- Protected routes for authenticated users
+- Flash messages for user feedback
 
 ### Weather Information
 - Current temperature and "feels like" temperature
@@ -71,13 +102,21 @@ Access the live application here: https://flask-weather-app-b3d4.onrender.com
 - Support for international locations
 - Clear error handling for invalid searches
 
+### Favorite Cities
+- Save frequently checked cities
+- Quick access to favorite locations
+- Easy management of saved cities
+
 ## Technologies Used
 
 - **Backend**:
   - Python 3.x
   - Flask
-  - Requests library for API calls
-  - python-dotenv for environment variables
+  - Flask-Login for authentication
+  - Flask-SQLAlchemy for database management
+  - PostgreSQL for production database
+  - SQLite for development
+  - Gunicorn for production server
 
 - **Frontend**:
   - HTML5
@@ -85,6 +124,19 @@ Access the live application here: https://flask-weather-app-b3d4.onrender.com
   - JavaScript (ES6+)
   - Font Awesome icons
   - OpenWeather API
+
+## Database Schema
+
+The application uses SQLAlchemy with the following model:
+
+```python
+class User:
+    id: Integer (Primary Key)
+    email: String (Unique)
+    username: String (Unique)
+    password_hash: String
+    favorite_cities: JSON
+```
 
 ## Contributing
 

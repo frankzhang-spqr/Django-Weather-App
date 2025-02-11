@@ -1,16 +1,100 @@
-from flask import Flask, render_template, request, jsonify
-from weather import get_current_weather, get_forecast
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
+from weather import get_current_weather, get_forecast, get_location_weather, get_city_by_coords
 from waitress import serve
 from datetime import datetime
 import os
 from dotenv import load_dotenv
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from models import init_db, User, db
+from werkzeug.security import check_password_hash
+import re
 
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
+
+# Initialize database
+db = init_db(app)
+
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 def format_date():
     return datetime.now().strftime("%A, %B %d, %Y")
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        username = request.form.get('username')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        # Validate input
+        if not all([email, username, password, confirm_password]):
+            flash('All fields are required', 'error')
+            return render_template('register.html', current_date=format_date())
+
+        if password != confirm_password:
+            flash('Passwords do not match', 'error')
+            return render_template('register.html', current_date=format_date())
+
+        if len(password) < 8:
+            flash('Password must be at least 8 characters long', 'error')
+            return render_template('register.html', current_date=format_date())
+
+        if not re.match(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$', password):
+            flash('Password must contain both letters and numbers', 'error')
+            return render_template('register.html', current_date=format_date())
+
+        # Check if user already exists
+        if User.query.filter_by(email=email).first():
+            flash('Email already registered', 'error')
+            return render_template('register.html', current_date=format_date())
+
+        if User.query.filter_by(username=username).first():
+            flash('Username already taken', 'error')
+            return render_template('register.html', current_date=format_date())
+
+        # Create new user
+        user = User(email=email, username=username, password=password)
+        db.session.add(user)
+        db.session.commit()
+
+        flash('Registration successful! Please login.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('register.html', current_date=format_date())
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        user = User.query.filter_by(email=email).first()
+        if user and user.check_password(password):
+            login_user(user)
+            flash('Logged in successfully!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid email or password', 'error')
+
+    return render_template('login.html', current_date=format_date())
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Logged out successfully', 'success')
+    return redirect(url_for('login'))
 
 @app.route('/')
 @app.route('/index')
@@ -44,7 +128,8 @@ def get_weather():
         wind_speed=f"{weather_data['wind']['speed']:.1f}",
         icon=weather_data['weather'][0]['icon'],
         units="F" if units == "imperial" else "C",
-        current_date=format_date()
+        current_date=format_date(),
+        user=current_user
     )
 
 @app.route('/forecast')
@@ -87,19 +172,23 @@ def forecast():
         city=forecast_data['city']['name'],
         forecasts=list(daily_forecasts.values()),
         units="F" if units == "imperial" else "C",
-        current_date=format_date()
+        current_date=format_date(),
+        user=current_user
     )
 
-@app.route('/search')
-def search_cities():
-    """Endpoint for city search suggestions"""
-    query = request.args.get('q', '').strip()
-    if not query:
-        return jsonify([])
+@app.route('/toggle_favorite', methods=['POST'])
+@login_required
+def toggle_favorite():
+    city = request.json.get('city')
+    if not city:
+        return jsonify({'error': 'City name is required'}), 400
 
-    # This would ideally use a geocoding API
-    # For now, return a simple response
-    return jsonify([{"name": query}])
+    if city in current_user.favorite_cities:
+        current_user.remove_favorite_city(city)
+        return jsonify({'status': 'removed'})
+    else:
+        current_user.add_favorite_city(city)
+        return jsonify({'status': 'added'})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))

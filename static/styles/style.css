@@ -14,7 +14,98 @@
     --card-bg: rgba(255, 255, 255, 0.95);
     --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     --transition: all 0.3s ease;
+    --error-color: #d63031;
+    --success-color: #00b894;
 }
+
+/* Authentication Styles */
+.auth-nav {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auth-link {
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.auth-link:hover {
+    color: var(--accent-color);
+}
+
+.welcome-text {
+    color: var(--text-color);
+    font-size: 0.9rem;
+}
+
+.favorite-cities {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+}
+
+.favorite-cities h3 {
+    color: var(--text-color);
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.favorite-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.favorite-city {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-color);
+    transition: var(--transition);
+}
+
+.favorite-city:hover {
+    transform: translateY(-2px);
+    background: white;
+}
+
+.favorite-city i {
+    color: #f1c40f;
+}
+
+.auth-prompt {
+    text-align: center;
+    padding: 1rem;
+    margin-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auth-prompt p {
+    color: var(--light-text);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.auth-prompt i {
+    color: var(--accent-color);
+}
+
 
 body {
     min-height: 100vh;

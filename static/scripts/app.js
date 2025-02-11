@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Check for geolocation support
+    // Geolocation support
     if ("geolocation" in navigator) {
         const locationButton = document.getElementById('get-location');
         locationButton.style.display = 'block';
@@ -44,8 +44,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Show loading state
-        document.getElementById('submit-btn').disabled = true;
-        document.getElementById('submit-btn').textContent = 'Getting weather...';
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         document.body.style.cursor = 'wait';
         
         // Proceed with form submission
@@ -68,7 +69,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (searchTerm.length >= 3) {
             timeoutId = setTimeout(async () => {
                 try {
-                    const response = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${searchTerm}&limit=5&appid=${process.env.API_KEY}`);
+                    const response = await fetch(`/search?q=${searchTerm}`);
                     const cities = await response.json();
                     
                     const datalist = document.getElementById('city-suggestions');
@@ -86,5 +87,44 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }, 300);
         }
+    });
+
+    // Favorite city functionality
+    const favoriteBtn = document.getElementById('favorite-btn');
+    if (favoriteBtn) {
+        favoriteBtn.addEventListener('click', async function() {
+            try {
+                const city = this.dataset.city;
+                const response = await fetch('/toggle_favorite', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ city }),
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'added') {
+                    this.innerHTML = '<i class="fas fa-star"></i>';
+                    this.classList.add('active');
+                } else {
+                    this.innerHTML = '<i class="far fa-star"></i>';
+                    this.classList.remove('active');
+                }
+            } catch (error) {
+                console.error('Error toggling favorite:', error);
+                alert('Unable to update favorite cities. Please try again.');
+            }
+        });
+    }
+
+    // Flash messages auto-hide
+    const flashMessages = document.querySelectorAll('.flash-message');
+    flashMessages.forEach(message => {
+        setTimeout(() => {
+            message.style.opacity = '0';
+            setTimeout(() => message.remove(), 300);
+        }, 5000);
     });
 });
