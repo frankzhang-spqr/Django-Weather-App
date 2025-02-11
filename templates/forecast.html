@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ city }} 5-Day Forecast</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="{{ url_for('static', filename='styles/style.css') }}" rel="stylesheet">
+    <style>
+        .forecast-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .forecast-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: transform 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .forecast-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .forecast-date {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            font-weight: bold;
+        }
+
+        .temp-range {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .temp-max, .temp-min {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .temp-max i {
+            color: #ff6b6b;
+        }
+
+        .temp-min i {
+            color: #4dabf7;
+        }
+
+        .forecast-details {
+            display: grid;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: var(--light-text);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="weather-card">
+            <div class="weather-header">
+                <h1>{{ city }} - 5-Day Forecast</h1>
+                <p class="current-date">{{ current_date }}</p>
+            </div>
+
+            <div class="forecast-grid">
+                {% for day in forecasts %}
+                <div class="forecast-card">
+                    <div class="forecast-date">{{ day.date }}</div>
+                    <img src="http://openweathermap.org/img/wn/{{ day.icon }}@2x.png" 
+                         alt="{{ day.description }}"
+                         class="weather-icon">
+                    <div class="forecast-description">{{ day.description }}</div>
+                    
+                    <div class="temp-range">
+                        <div class="temp-max">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>{{ "%.1f"|format(day.temp_max) }}°{{ units }}</span>
+                        </div>
+                        <div class="temp-min">
+                            <i class="fas fa-arrow-down"></i>
+                            <span>{{ "%.1f"|format(day.temp_min) }}°{{ units }}</span>
+                        </div>
+                    </div>
+
+                    <div class="forecast-details">
+                        <div>
+                            <i class="fas fa-tint"></i>
+                            {{ day.humidity }}% humidity
+                        </div>
+                        <div>
+                            <i class="fas fa-wind"></i>
+                            {{ "%.1f"|format(day.wind_speed) }} {% if units == "F" %}mph{% else %}m/s{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <form action="/weather" id="weather-form" class="search-form">
+                <div class="search-container">
+                    <input type="text" 
+                           name="city" 
+                           id="city" 
+                           placeholder="Search for a city..."
+                           list="city-suggestions"
+                           value="{{ city }}"
+                           autocomplete="off"
+                           required>
+                    <datalist id="city-suggestions"></datalist>
+                    <button type="submit" id="submit-btn" class="search-btn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="get-location" class="location-btn">
+                        📍 Use My Location
+                    </button>
+                    
+                    <div class="units-toggle">
+                        <select name="units" id="units">
+                            <option value="imperial" {% if units == "F" %}selected{% endif %}>°F (Fahrenheit)</option>
+                            <option value="metric" {% if units == "C" %}selected{% endif %}>°C (Celsius)</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+
+            <nav class="view-toggle">
+                <a href="/weather?city={{ city }}&units={% if units == 'F' %}imperial{% else %}metric{% endif %}">Current Weather</a>
+                <a href="/forecast?city={{ city }}&units={% if units == 'F' %}imperial{% else %}metric{% endif %}" class="active">5-Day Forecast</a>
+            </nav>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='scripts/app.js') }}" defer></script>
+</body>
+</html>

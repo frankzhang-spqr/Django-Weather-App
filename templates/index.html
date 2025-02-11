@@ -1,25 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Get Weather Conditions</title>
+    <title>Weather Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="{{ url_for('static', filename='styles/style.css') }}" rel="stylesheet">
-    <script src="{{ url_for('static', filename='scripts/app.js') }}" defer></script>
 </head>
-
 <body>
-    <h1>Get Weather Conditions</h1>
-    <form action="/weather" id="weather-form">
-        <input type="text" name="city" id="city" placeholder="Enter a City" required>
-        <label for="units">Select Units:</label>
-        <select name="units" id="units">
-            <option value="imperial">Fahrenheit</option>
-            <option value="metric">Celsius</option>
-        </select>
-        <button type="submit">Submit</button>
-    </form>
-</body>
+    <div class="container">
+        <div class="weather-card">
+            <div class="weather-header">
+                <h1>Weather Dashboard</h1>
+                <p class="current-date">{{ current_date }}</p>
+            </div>
 
+            <form action="/weather" id="weather-form" class="search-form">
+                <div class="search-container">
+                    <input type="text" 
+                           name="city" 
+                           id="city" 
+                           placeholder="Search for a city..."
+                           list="city-suggestions"
+                           autocomplete="off"
+                           required>
+                    <datalist id="city-suggestions"></datalist>
+                    <button type="submit" id="submit-btn" class="search-btn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="get-location" class="location-btn">
+                        📍 Use My Location
+                    </button>
+                    
+                    <div class="units-toggle">
+                        <select name="units" id="units">
+                            <option value="imperial">°F (Fahrenheit)</option>
+                            <option value="metric">°C (Celsius)</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+
+            <nav class="view-toggle">
+                <a href="/weather" class="active">Current Weather</a>
+                <a href="/forecast">5-Day Forecast</a>
+            </nav>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='scripts/app.js') }}" defer></script>
+</body>
 </html>
