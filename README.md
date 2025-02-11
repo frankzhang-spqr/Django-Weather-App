@@ -2,6 +2,8 @@
 
 A modern and responsive Flask web application that provides real-time weather information and forecasts. Built with Python Flask and the OpenWeather API.
 
+**Note**: Still devloping all the features below and adding new ones the plan is to be done by the end of March 
+
 ## Features
 
 - 🌍 **Real-time Weather Data**: Get current weather conditions for any city worldwide
