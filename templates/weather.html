@@ -5,23 +5,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather for {{ title }}</title>
     <link href="{{ url_for('static', filename='styles/style.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="{{ url_for('static', filename='scripts/app.js') }}" defer></script>
 </head>
 <body>
-    <h1>Weather in {{ title }}</h1>
-    <p>Status: {{ status }}</p>
-    <p>Temperature: {{ temp }}&deg;{{ 'F' if units == 'imperial' else 'C' }}</p>
-    <p>Feels like: {{ feels_like }}&deg;{{ 'F' if units == 'imperial' else 'C' }}</p>
-    <img src="http://openweathermap.org/img/wn/{{ icon }}.png" alt="{{ status }}">
-   
-    <form action="/weather" id="weather-form">
-        <input type="text" name="city" id="city" placeholder="Enter a City" required>
-        <label for="units">Select Units:</label>
-        <select name="units" id="units">
-            <option value="imperial" {% if units == 'imperial' %}selected{% endif %}>Fahrenheit</option>
-            <option value="metric" {% if units == 'metric' %}selected{% endif %}>Celsius</option>
-        </select>
-        <button type="submit">Submit</button>
-    </form>
+    <div class="container">
+        <form action="/weather" id="weather-form" class="search-form">
+            <div class="search-container">
+                <input type="text" name="city" id="city" placeholder="Search for a city..." required>
+                <button type="submit" class="search-btn">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <div class="units-toggle">
+                <select name="units" id="units">
+                    <option value="imperial" {% if units == 'imperial' %}selected{% endif %}>°F</option>
+                    <option value="metric" {% if units == 'metric' %}selected{% endif %}>°C</option>
+                </select>
+            </div>
+        </form>
+
+        <div class="weather-card">
+            <div class="weather-header">
+                <h1>{{ title }}</h1>
+                <p class="current-date" id="current-date"></p>
+            </div>
+            
+            <div class="weather-info">
+                <div class="temperature-container">
+                    <h2 class="temperature">{{ temp }}&deg;{{ 'F' if units == 'imperial' else 'C' }}</h2>
+                    <p class="feels-like">Feels like {{ feels_like }}&deg;{{ 'F' if units == 'imperial' else 'C' }}</p>
+                </div>
+                
+                <div class="weather-status">
+                    <i class="weather-icon" id="weather-icon"></i>
+                    <p class="status">{{ status }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Update date
+        const dateElement = document.getElementById('current-date');
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        dateElement.textContent = new Date().toLocaleDateString('en-US', options);
+
+        // Map OpenWeather icons to Font Awesome icons
+        const iconElement = document.getElementById('weather-icon');
+        const weatherIcon = '{{ icon }}';
+        const iconMap = {
+            '01d': 'fas fa-sun',
+            '01n': 'fas fa-moon',
+            '02d': 'fas fa-cloud-sun',
+            '02n': 'fas fa-cloud-moon',
+            '03d': 'fas fa-cloud',
+            '03n': 'fas fa-cloud',
+            '04d': 'fas fa-cloud',
+            '04n': 'fas fa-cloud',
+            '09d': 'fas fa-cloud-rain',
+            '09n': 'fas fa-cloud-rain',
+            '10d': 'fas fa-cloud-sun-rain',
+            '10n': 'fas fa-cloud-moon-rain',
+            '11d': 'fas fa-bolt',
+            '11n': 'fas fa-bolt',
+            '13d': 'fas fa-snowflake',
+            '13n': 'fas fa-snowflake',
+            '50d': 'fas fa-smog',
+            '50n': 'fas fa-smog'
+        };
+        iconElement.className = `weather-icon ${iconMap[weatherIcon] || 'fas fa-sun'}`;
+    </script>
 </body>
 </html>
