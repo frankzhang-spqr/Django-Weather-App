@@ -6,30 +6,47 @@ document.addEventListener('DOMContentLoaded', function() {
         
         locationButton.addEventListener('click', function() {
             locationButton.disabled = true;
-            locationButton.textContent = 'Getting location...';
+            locationButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Getting location...';
             
-            navigator.geolocation.getCurrentPosition(async function(position) {
-                try {
-                    const response = await fetch(`https://api.openweathermap.org/geo/1.0/reverse?lat=${position.coords.latitude}&lon=${position.coords.longitude}&limit=1&appid=${process.env.API_KEY}`);
-                    const data = await response.json();
-                    
-                    if (data && data.length > 0) {
-                        document.getElementById('city').value = data[0].name;
-                        document.getElementById('weather-form').submit();
+            navigator.geolocation.getCurrentPosition(
+                async function(position) {
+                    try {
+                        const units = document.getElementById('units').value;
+                        window.location.href = `/get_location_weather?lat=${position.coords.latitude}&lon=${position.coords.longitude}&units=${units}`;
+                    } catch (error) {
+                        console.error('Error getting location:', error);
+                        alert('Unable to get your location. Please enter a city manually.');
+                    } finally {
+                        locationButton.disabled = false;
+                        locationButton.innerHTML = '📍 Use My Location';
                     }
-                } catch (error) {
-                    console.error('Error getting location:', error);
-                    alert('Unable to get your location. Please enter a city manually.');
-                } finally {
+                },
+                function(error) {
+                    console.error('Geolocation error:', error);
+                    let errorMsg = 'Unable to get your location. ';
+                    switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg += 'Please allow location access and try again.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg += 'Location information is unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg += 'Location request timed out.';
+                            break;
+                        default:
+                            errorMsg += 'Please enter a city manually.';
+                    }
+                    alert(errorMsg);
                     locationButton.disabled = false;
-                    locationButton.textContent = '📍 Use My Location';
+                    locationButton.innerHTML = '📍 Use My Location';
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
                 }
-            }, function(error) {
-                console.error('Geolocation error:', error);
-                alert('Unable to get your location. Please enter a city manually.');
-                locationButton.disabled = false;
-                locationButton.textContent = '📍 Use My Location';
-            });
+            );
         });
     }
 
@@ -55,7 +72,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Units toggle functionality
     document.getElementById('units').addEventListener('change', function() {
-        if (document.getElementById('city').value.trim()) {
+        const city = document.getElementById('city').value.trim();
+        if (city) {
             document.getElementById('weather-form').submit();
         }
     });

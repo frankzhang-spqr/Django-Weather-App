@@ -170,9 +170,12 @@
                 return;
             }
 
-            if (!password.match(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/)) {
+            const hasLetters = /[A-Za-z]/.test(password);
+            const hasNumbers = /[0-9]/.test(password);
+            
+            if (!hasLetters || !hasNumbers) {
                 e.preventDefault();
-                alert('Password must contain both letters and numbers!');
+                alert('Password must contain at least one letter and one number!');
                 return;
             }
         });

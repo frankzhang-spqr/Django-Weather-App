@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
+import requests
 from weather import get_current_weather, get_forecast, get_location_weather, get_city_by_coords
 from waitress import serve
 from datetime import datetime
@@ -50,8 +51,15 @@ def register():
             flash('Password must be at least 8 characters long', 'error')
             return render_template('register.html', current_date=format_date())
 
-        if not re.match(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$', password):
-            flash('Password must contain both letters and numbers', 'error')
+        if len(password) < 8:
+            flash('Password must be at least 8 characters long', 'error')
+            return render_template('register.html', current_date=format_date())
+            
+        # Simple check for letters and numbers
+        has_letters = any(c.isalpha() for c in password)
+        has_numbers = any(c.isdigit() for c in password)
+        if not (has_letters and has_numbers):
+            flash('Password must contain at least one letter and one number', 'error')
             return render_template('register.html', current_date=format_date())
 
         # Check if user already exists
@@ -100,6 +108,46 @@ def logout():
 @app.route('/index')
 def index():
     return render_template('index.html', current_date=format_date())
+
+@app.route('/get_location_weather')
+def get_location_weather():
+    lat = request.args.get('lat')
+    lon = request.args.get('lon')
+    units = request.args.get('units', 'imperial')
+    
+    if not lat or not lon:
+        return jsonify({"error": "Latitude and longitude are required"}), 400
+        
+    api_key = os.environ.get('API_KEY')
+    try:
+        # First get weather data directly using coordinates
+        weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&units={units}&appid={api_key}"
+        weather_response = requests.get(weather_url)
+        weather_response.raise_for_status()
+        weather_data = weather_response.json()
+        
+        if weather_data.get('cod') == 200:
+            return render_template(
+                "weather.html",
+                title=weather_data["name"],
+                status=weather_data["weather"][0]["description"].capitalize(),
+                temp=f"{weather_data['main']['temp']:.1f}",
+                feels_like=f"{weather_data['main']['feels_like']:.1f}",
+                humidity=weather_data['main']['humidity'],
+                wind_speed=f"{weather_data['wind']['speed']:.1f}",
+                icon=weather_data['weather'][0]['icon'],
+                units="F" if units == "imperial" else "C",
+                current_date=format_date(),
+                user=current_user
+            )
+        else:
+            return render_template('city-not-found.html', 
+                                error="Could not get weather for your location",
+                                current_date=format_date())
+    except Exception as e:
+        return render_template('city-not-found.html', 
+                             error="Error getting weather data",
+                             current_date=format_date())
 
 @app.route('/weather')
 def get_weather():
