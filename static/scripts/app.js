@@ -1,148 +1,109 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Geolocation support
-    if ("geolocation" in navigator) {
-        const locationButton = document.getElementById('get-location');
-        locationButton.style.display = 'block';
-        
-        locationButton.addEventListener('click', function() {
-            locationButton.disabled = true;
-            locationButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Getting location...';
-            
-            navigator.geolocation.getCurrentPosition(
-                async function(position) {
-                    try {
-                        const units = document.getElementById('units').value;
-                        window.location.href = `/get_location_weather?lat=${position.coords.latitude}&lon=${position.coords.longitude}&units=${units}`;
-                    } catch (error) {
-                        console.error('Error getting location:', error);
-                        alert('Unable to get your location. Please enter a city manually.');
-                    } finally {
-                        locationButton.disabled = false;
-                        locationButton.innerHTML = '📍 Use My Location';
-                    }
-                },
-                function(error) {
-                    console.error('Geolocation error:', error);
-                    let errorMsg = 'Unable to get your location. ';
-                    switch (error.code) {
-                        case error.PERMISSION_DENIED:
-                            errorMsg += 'Please allow location access and try again.';
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            errorMsg += 'Location information is unavailable.';
-                            break;
-                        case error.TIMEOUT:
-                            errorMsg += 'Location request timed out.';
-                            break;
-                        default:
-                            errorMsg += 'Please enter a city manually.';
-                    }
-                    alert(errorMsg);
-                    locationButton.disabled = false;
-                    locationButton.innerHTML = '📍 Use My Location';
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                }
-            );
-        });
-    }
-
-    // Form validation and submission
-    document.getElementById('weather-form').addEventListener('submit', function(event) {
-        event.preventDefault();
-       
-        const city = document.getElementById('city').value;
-        if (!city.trim()) {
-            alert('Please enter a valid city name.');
-            return;
-        }
-
-        // Show loading state
-        const submitBtn = document.getElementById('submit-btn');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        document.body.style.cursor = 'wait';
-        
-        // Proceed with form submission
-        this.submit();
-    });
-
-    // Units toggle functionality
-    document.getElementById('units').addEventListener('change', function() {
-        const city = document.getElementById('city').value.trim();
-        if (city) {
-            document.getElementById('weather-form').submit();
-        }
-    });
-
-    // Search suggestions
+    const cityInput = document.getElementById('city');
+    const cityDatalist = document.getElementById('city-suggestions');
     let timeoutId;
-    document.getElementById('city').addEventListener('input', function(e) {
+
+    cityInput.addEventListener('input', function() {
         clearTimeout(timeoutId);
-        const searchTerm = e.target.value.trim();
-        
-        if (searchTerm.length >= 3) {
-            timeoutId = setTimeout(async () => {
-                try {
-                    const response = await fetch(`/search?q=${searchTerm}`);
-                    const cities = await response.json();
-                    
-                    const datalist = document.getElementById('city-suggestions');
-                    datalist.innerHTML = '';
-                    
-                    cities.forEach(city => {
+        const query = this.value;
+
+        if (query.length < 3) return;
+
+        timeoutId = setTimeout(() => {
+            fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${query}&limit=5&appid=${API_KEY}`)
+                .then(response => response.json())
+                .then(data => {
+                    cityDatalist.innerHTML = '';
+                    data.forEach(city => {
                         const option = document.createElement('option');
-                        option.value = city.state ? 
+                        const cityText = city.state ? 
                             `${city.name}, ${city.state}, ${city.country}` : 
                             `${city.name}, ${city.country}`;
-                        datalist.appendChild(option);
+                        option.value = city.name;
+                        option.textContent = cityText;
+                        cityDatalist.appendChild(option);
                     });
-                } catch (error) {
-                    console.error('Error fetching city suggestions:', error);
-                }
-            }, 300);
-        }
+                })
+                .catch(error => console.error('Error fetching cities:', error));
+        }, 300);
     });
 
-    // Favorite city functionality
-    const favoriteBtn = document.getElementById('favorite-btn');
-    if (favoriteBtn) {
-        favoriteBtn.addEventListener('click', async function() {
-            try {
-                const city = this.dataset.city;
-                const response = await fetch('/toggle_favorite', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
+    // Location button functionality
+    const locationBtn = document.getElementById('get-location');
+    if (locationBtn) {
+        locationBtn.addEventListener('click', function() {
+            if (navigator.geolocation) {
+                locationBtn.disabled = true;
+                locationBtn.textContent = 'Getting location...';
+                
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const units = document.getElementById('units').value;
+                        window.location.href = `/get-location-weather/?lat=${position.coords.latitude}&lon=${position.coords.longitude}&units=${units}`;
                     },
-                    body: JSON.stringify({ city }),
-                });
-                
-                const data = await response.json();
-                
-                if (data.status === 'added') {
-                    this.innerHTML = '<i class="fas fa-star"></i>';
-                    this.classList.add('active');
-                } else {
-                    this.innerHTML = '<i class="far fa-star"></i>';
-                    this.classList.remove('active');
-                }
-            } catch (error) {
-                console.error('Error toggling favorite:', error);
-                alert('Unable to update favorite cities. Please try again.');
+                    function(error) {
+                        locationBtn.disabled = false;
+                        locationBtn.textContent = '📍 Use My Location';
+                        alert('Unable to get your location. Please check your browser settings.');
+                        console.error('Geolocation error:', error);
+                    }
+                );
+            } else {
+                alert('Geolocation is not supported by your browser.');
             }
         });
     }
 
-    // Flash messages auto-hide
-    const flashMessages = document.querySelectorAll('.flash-message');
-    flashMessages.forEach(message => {
-        setTimeout(() => {
-            message.style.opacity = '0';
-            setTimeout(() => message.remove(), 300);
-        }, 5000);
-    });
+    // Favorite button functionality
+    const favoriteBtn = document.querySelector('.favorite-btn');
+    if (favoriteBtn) {
+        favoriteBtn.addEventListener('click', function() {
+            const city = this.dataset.city;
+            
+            fetch('/toggle-favorite/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({city: city})
+            })
+            .then(response => response.json())
+            .then(data => {
+                const starIcon = this.querySelector('i');
+                const favoriteText = this.querySelector('.favorite-text');
+                
+                if (data.status === 'added') {
+                    starIcon.classList.add('active');
+                    favoriteText.textContent = 'Remove from Favorites';
+                } else {
+                    starIcon.classList.remove('active');
+                    favoriteText.textContent = 'Add to Favorites';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error updating favorites. Please try again.');
+            });
+        });
+    }
 });
+
+// Function to get CSRF token from cookies
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Set API key from Django template
+const API_KEY = document.currentScript.getAttribute('data-api-key');

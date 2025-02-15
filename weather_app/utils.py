@@ -1,16 +1,15 @@
 import requests
 import os
-from dotenv import load_dotenv
 from typing import Dict, Union, Any
 import logging
+from django.conf import settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
-API_KEY = os.getenv("API_KEY")
+# Get API key from Django settings
+API_KEY = settings.WEATHER_API_KEY
 
 if not API_KEY:
     raise EnvironmentError("OpenWeather API key not found. Please set API_KEY in .env file")

@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - Weather Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="{{ url_for('static', filename='styles/style.css') }}" rel="stylesheet">
+    <link href="{% static 'styles/style.css' %}" rel="stylesheet">
     <style>
         .auth-form {
             max-width: 400px;
@@ -19,84 +20,64 @@
         .form-group label {
             display: block;
             margin-bottom: 0.5rem;
-            color: var(--text-color);
         }
 
         .form-group input {
             width: 100%;
-            padding: 0.75rem;
-            border: 2px solid transparent;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.9);
-            font-size: 1rem;
-            transition: var(--transition);
         }
 
-        .form-group input:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            background: white;
-        }
-
-        .auth-btn {
+        .auth-button {
             width: 100%;
-            padding: 0.75rem;
-            border: none;
-            border-radius: 8px;
+            padding: 0.8rem;
             background: var(--primary-color);
+            border: none;
+            border-radius: 10px;
             color: white;
             font-size: 1rem;
             cursor: pointer;
-            transition: var(--transition);
+            transition: background-color 0.3s ease;
         }
 
-        .auth-btn:hover {
-            background: var(--secondary-color);
-            transform: translateY(-2px);
+        .auth-button:hover {
+            background-color: #4b8cd6;
         }
 
         .auth-links {
-            margin-top: 1.5rem;
             text-align: center;
+            margin-top: 1.5rem;
         }
 
         .auth-links a {
-            color: var(--primary-color);
+            color: white;
             text-decoration: none;
-            font-size: 0.9rem;
-            transition: var(--transition);
+            transition: color 0.3s ease;
         }
 
         .auth-links a:hover {
-            color: var(--secondary-color);
+            color: var(--primary-color);
         }
 
-        .flash-messages {
+        .messages {
             margin-bottom: 1.5rem;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
         }
 
-        .flash-message {
-            padding: 0.75rem;
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
-            background: rgba(255, 255, 255, 0.9);
-            color: var(--text-color);
+        .messages .error {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff6b6b;
         }
 
-        .flash-message.error {
-            background: #ffe5e5;
-            color: #d63031;
-        }
-
-        .flash-message.success {
-            background: #e5ffe5;
-            color: #00b894;
+        .messages .success {
+            background: rgba(87, 200, 117, 0.2);
+            color: #57c875;
         }
 
         .password-requirements {
-            font-size: 0.8rem;
-            color: var(--light-text);
             margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--light-text);
         }
     </style>
 </head>
@@ -104,23 +85,25 @@
     <div class="container">
         <div class="weather-card">
             <div class="weather-header">
-                <h1>Create Account</h1>
+                <a href="{% url 'index' %}" class="back-button">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+                <h1>Register</h1>
                 <p class="current-date">{{ current_date }}</p>
             </div>
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="flash-messages">
-                        {% for category, message in messages %}
-                            <div class="flash-message {{ category }}">
-                                {{ message }}
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="{{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
 
-            <form method="POST" class="auth-form">
+            <form method="post" class="auth-form">
+                {% csrf_token %}
                 <div class="form-group">
                     <label for="email">Email</label>
                     <input type="email" id="email" name="email" required>
@@ -135,7 +118,7 @@
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password" required>
                     <div class="password-requirements">
-                        Password must be at least 8 characters long and contain letters and numbers
+                        Password must be at least 8 characters long and contain both letters and numbers.
                     </div>
                 </div>
 
@@ -144,41 +127,18 @@
                     <input type="password" id="confirm_password" name="confirm_password" required>
                 </div>
 
-                <button type="submit" class="auth-btn">Create Account</button>
+                <button type="submit" class="auth-button">
+                    <i class="fas fa-user-plus"></i> Register
+                </button>
 
                 <div class="auth-links">
-                    <a href="{{ url_for('login') }}">Already have an account? Login here</a>
+                    Already have an account? <a href="{% url 'login' %}">Login here</a>
                 </div>
             </form>
         </div>
     </div>
 
-    <script>
-        document.querySelector('.auth-form').addEventListener('submit', function(e) {
-            const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('confirm_password').value;
-            
-            if (password !== confirmPassword) {
-                e.preventDefault();
-                alert('Passwords do not match!');
-                return;
-            }
-
-            if (password.length < 8) {
-                e.preventDefault();
-                alert('Password must be at least 8 characters long!');
-                return;
-            }
-
-            const hasLetters = /[A-Za-z]/.test(password);
-            const hasNumbers = /[0-9]/.test(password);
-            
-            if (!hasLetters || !hasNumbers) {
-                e.preventDefault();
-                alert('Password must contain at least one letter and one number!');
-                return;
-            }
-        });
-    </script>
+    {% load static %}
+    <script src="{% static 'scripts/app.js' %}" data-api-key="{{ WEATHER_API_KEY }}" defer></script>
 </body>
 </html>
