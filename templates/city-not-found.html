@@ -6,7 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>City Not Found</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/css/ol.css">
     <link href="{% static 'styles/style.css' %}" rel="stylesheet">
+    <link href="{% static 'styles/map.css' %}" rel="stylesheet">
 </head>
 <body>
     <div class="container">
@@ -55,39 +57,55 @@
                 <div class="error-message">
                     {{ error|default:"City not found. Please try again." }}
                 </div>
-                <form action="{% url 'weather' %}" id="weather-form" class="search-form" method="GET">
-                    <div class="search-container">
-                        <input type="text" 
-                               name="city" 
-                               id="city" 
-                               placeholder="Try another city..."
-                               list="city-suggestions"
-                               autocomplete="off"
-                               required>
-                        <datalist id="city-suggestions"></datalist>
-                        <button type="submit" id="submit-btn" class="search-btn">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="button" id="get-location" class="location-btn">
-                            📍 Use My Location
-                        </button>
-                        
-                        <div class="units-toggle">
-                            <select name="units" id="units">
-                                <option value="imperial">°F (Fahrenheit)</option>
-                                <option value="metric">°C (Celsius)</option>
-                            </select>
-                        </div>
-                    </div>
-                </form>
             </div>
+
+            <div class="map-container">
+                <div id="map" class="map" data-coordinates="{{ map_center|default:'[0, 20]' }}" data-zoom="{{ map_zoom|default:2 }}"></div>
+            </div>
+
+            <form action="{% url 'weather' %}" id="weather-form" class="search-form" method="GET">
+                <div class="search-container">
+                    <input type="text" 
+                           name="city" 
+                           id="city" 
+                           placeholder="Try another city..."
+                           list="city-suggestions"
+                           autocomplete="off"
+                           required>
+                    <datalist id="city-suggestions"></datalist>
+                    <button type="submit" id="submit-btn" class="search-btn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="get-location" class="location-btn">
+                        📍 Use My Location
+                    </button>
+                    
+                    <div class="units-toggle">
+                        <select name="units" id="units">
+                            <option value="imperial">°F (Fahrenheit)</option>
+                            <option value="metric">°C (Celsius)</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/build/ol.js"></script>
     {% load static %}
+    <script src="{% static 'scripts/map.js' %}"></script>
     <script src="{% static 'scripts/app.js' %}" data-api-key="{{ WEATHER_API_KEY }}" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const mapElement = document.getElementById('map');
+            const apiKey = document.querySelector('script[data-api-key]').dataset.apiKey;
+            const coordinates = JSON.parse(mapElement.dataset.coordinates);
+            const zoom = parseInt(mapElement.dataset.zoom, 10);
+            initMap(apiKey, 'map', coordinates, zoom);
+        });
+    </script>
 </body>
 </html>

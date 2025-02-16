@@ -6,46 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/css/ol.css">
     <link href="{% static 'styles/style.css' %}" rel="stylesheet">
-    <style>
-        .messages {
-            margin-bottom: 1.5rem;
-            padding: 1rem;
-            border-radius: 10px;
-            text-align: center;
-        }
-
-        .messages .success {
-            background: rgba(87, 200, 117, 0.2);
-            color: #57c875;
-        }
-
-        .messages .error {
-            background: rgba(255, 107, 107, 0.2);
-            color: #ff6b6b;
-        }
-
-        .logout-form {
-            display: inline;
-        }
-
-        .logout-btn {
-            background: none;
-            border: none;
-            color: white;
-            cursor: pointer;
-            font-size: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0;
-            transition: color 0.3s ease;
-        }
-
-        .logout-btn:hover {
-            color: var(--primary-color);
-        }
-    </style>
+    <link href="{% static 'styles/map.css' %}" rel="stylesheet">
 </head>
 <body>
     <div class="container">
@@ -82,6 +45,10 @@
             <div class="weather-header">
                 <h1>Weather Dashboard</h1>
                 <p class="current-date">{{ current_date }}</p>
+            </div>
+
+            <div class="map-container">
+                <div id="map" class="map" data-coordinates="{{ map_center|default:'[0, 20]' }}" data-zoom="{{ map_zoom|default:2 }}"></div>
             </div>
 
             {% if user.is_authenticated %}
@@ -152,7 +119,18 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/build/ol.js"></script>
     {% load static %}
+    <script src="{% static 'scripts/map.js' %}"></script>
     <script src="{% static 'scripts/app.js' %}" data-api-key="{{ WEATHER_API_KEY }}" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const mapElement = document.getElementById('map');
+            const apiKey = document.querySelector('script[data-api-key]').dataset.apiKey;
+            const coordinates = JSON.parse(mapElement.dataset.coordinates);
+            const zoom = parseInt(mapElement.dataset.zoom, 10);
+            initMap(apiKey, 'map', coordinates, zoom);
+        });
+    </script>
 </body>
 </html>

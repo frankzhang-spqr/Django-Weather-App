@@ -35,6 +35,12 @@ class BaseContextMixin:
 class IndexView(BaseContextMixin, TemplateView):
     template_name = 'index.html'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['map_center'] = json.dumps([0, 20])
+        context['map_zoom'] = 2
+        return context
+
 class RegisterView(BaseContextMixin, View):
     def get(self, request):
         return render(request, 'register.html', self.get_context_data())
@@ -136,6 +142,10 @@ class WeatherView(BaseContextMixin, View):
                             self.get_context_data(error=weather_data.get('message', 'City not found')))
 
             context = self.get_context_data()
+            # Format coordinates for JavaScript
+            lon = float(weather_data['coord']['lon'])
+            lat = float(weather_data['coord']['lat'])
+            
             context.update({
                 'title': weather_data['name'],
                 'status': weather_data['weather'][0]['description'].capitalize(),
@@ -144,7 +154,9 @@ class WeatherView(BaseContextMixin, View):
                 'humidity': weather_data['main']['humidity'],
                 'wind_speed': f"{weather_data['wind']['speed']:.1f}",
                 'icon': weather_data['weather'][0]['icon'],
-                'units': "F" if units == "imperial" else "C"
+                'units': "F" if units == "imperial" else "C",
+                'map_center': json.dumps([lon, lat]),
+                'map_zoom': 10
             })
             return render(request, 'weather.html', context)
         except Exception as e:
@@ -179,7 +191,9 @@ class LocationWeatherView(BaseContextMixin, View):
                 'humidity': weather_data['main']['humidity'],
                 'wind_speed': f"{weather_data['wind']['speed']:.1f}",
                 'icon': weather_data['weather'][0]['icon'],
-                'units': "F" if units == "imperial" else "C"
+                'units': "F" if units == "imperial" else "C",
+                'map_center': json.dumps([float(lon), float(lat)]),
+                'map_zoom': 10
             })
             return render(request, 'weather.html', context)
         except Exception as e:
@@ -223,10 +237,16 @@ class ForecastView(BaseContextMixin, View):
                 daily_forecasts[date]['temp_max'] = max(daily_forecasts[date]['temp_max'], item['main']['temp_max'])
 
             context = self.get_context_data()
+            # Format coordinates for JavaScript
+            lon = float(forecast_data['city']['coord']['lon'])
+            lat = float(forecast_data['city']['coord']['lat'])
+            
             context.update({
                 'city': forecast_data['city']['name'],
                 'forecasts': list(daily_forecasts.values()),
-                'units': "F" if units == "imperial" else "C"
+                'units': "F" if units == "imperial" else "C",
+                'map_center': json.dumps([lon, lat]),
+                'map_zoom': 10
             })
             return render(request, 'forecast.html', context)
         except Exception as e:
