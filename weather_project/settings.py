@@ -111,7 +111,15 @@ AUTH_USER_MODEL = 'weather_app.User'
 # Login settings
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'index'
-LOGOUT_REDIRECT_URL = 'login'
+LOGOUT_REDIRECT_URL = 'index'
+
+# Authentication backends
+AUTHENTICATION_BACKENDS = [
+    'weather_app.auth.EmailBackend',
+]
+
+# Messages
+MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
@@ -120,7 +128,7 @@ USE_I18N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),

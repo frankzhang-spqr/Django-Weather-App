@@ -1,8 +1,9 @@
 from django.views.generic import View, TemplateView
-from django.contrib.auth.views import LoginView as BaseLoginView
+from django.contrib.auth.views import LoginView as BaseLoginView, LogoutView as BaseLogoutView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import render, redirect
 from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -78,40 +79,78 @@ class RegisterView(BaseContextMixin, View):
 
 class LoginView(BaseLoginView):
     template_name = 'login.html'
-    success_url = reverse_lazy('index')
-    
+    redirect_authenticated_user = True
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['current_date'] = datetime.now().strftime("%A, %B %d, %Y")
         return context
 
+    def post(self, request, *args, **kwargs):
+        email = request.POST.get('username')  # Form uses 'username' field for email
+        password = request.POST.get('password')
+        
+        if not email or not password:
+            messages.error(request, 'Please enter both email and password')
+            return self.form_invalid(None)
+        
+        user = authenticate(request, username=email, password=password)
+        if user is not None:
+            login(request, user)
+            messages.success(request, f'Welcome back, {user.username}!')
+            return redirect('index')
+        else:
+            messages.error(request, 'Invalid email or password')
+            return self.form_invalid(None)
+
+    def form_invalid(self, form):
+        return render(self.request, self.template_name, self.get_context_data())
+
+class CustomLogoutView(View):
+    def get(self, request):
+        if request.user.is_authenticated:
+            logout(request)
+            messages.success(request, 'Successfully logged out.')
+        return redirect('index')
+
+    def post(self, request):
+        if request.user.is_authenticated:
+            logout(request)
+            messages.success(request, 'Successfully logged out.')
+        return redirect('index')
+
 class WeatherView(BaseContextMixin, View):
     def get(self, request):
-        city = request.GET.get('city')
+        city = request.GET.get('city', '').strip()
         units = request.GET.get('units', 'imperial')
 
         if not city:
-            messages.error(request, 'Please enter a city name')
-            return render(request, 'city-not-found.html', self.get_context_data())
+            return render(request, 'index.html', self.get_context_data())
 
-        weather_data = utils.get_current_weather(city.strip(), units)
+        try:
+            weather_data = utils.get_current_weather(city, units)
 
-        if weather_data.get('cod') != 200:
-            return render(request, 'city-not-found.html', 
-                         self.get_context_data(error=weather_data.get('message', 'City not found')))
+            if weather_data.get('cod') != 200:
+                messages.error(request, weather_data.get('message', 'City not found'))
+                return render(request, 'city-not-found.html', 
+                            self.get_context_data(error=weather_data.get('message', 'City not found')))
 
-        context = self.get_context_data()
-        context.update({
-            'title': weather_data['name'],
-            'status': weather_data['weather'][0]['description'].capitalize(),
-            'temp': f"{weather_data['main']['temp']:.1f}",
-            'feels_like': f"{weather_data['main']['feels_like']:.1f}",
-            'humidity': weather_data['main']['humidity'],
-            'wind_speed': f"{weather_data['wind']['speed']:.1f}",
-            'icon': weather_data['weather'][0]['icon'],
-            'units': "F" if units == "imperial" else "C"
-        })
-        return render(request, 'weather.html', context)
+            context = self.get_context_data()
+            context.update({
+                'title': weather_data['name'],
+                'status': weather_data['weather'][0]['description'].capitalize(),
+                'temp': f"{weather_data['main']['temp']:.1f}",
+                'feels_like': f"{weather_data['main']['feels_like']:.1f}",
+                'humidity': weather_data['main']['humidity'],
+                'wind_speed': f"{weather_data['wind']['speed']:.1f}",
+                'icon': weather_data['weather'][0]['icon'],
+                'units': "F" if units == "imperial" else "C"
+            })
+            return render(request, 'weather.html', context)
+        except Exception as e:
+            messages.error(request, 'Error getting weather data. Please try again.')
+            return render(request, 'city-not-found.html',
+                        self.get_context_data(error='Error getting weather data. Please try again.'))
 
 class LocationWeatherView(BaseContextMixin, View):
     def get(self, request):
@@ -120,67 +159,80 @@ class LocationWeatherView(BaseContextMixin, View):
         units = request.GET.get('units', 'imperial')
 
         if not lat or not lon:
-            return JsonResponse({"error": "Latitude and longitude are required"}, status=400)
+            messages.error(request, 'Location data is required')
+            return render(request, 'index.html', self.get_context_data())
 
-        weather_data = utils.get_location_weather(lat, lon, units)
+        try:
+            weather_data = utils.get_location_weather(lat, lon, units)
 
-        if weather_data.get('cod') != 200:
+            if weather_data.get('cod') != 200:
+                messages.error(request, 'Could not get weather for your location')
+                return render(request, 'city-not-found.html',
+                            self.get_context_data(error='Could not get weather for your location'))
+
+            context = self.get_context_data()
+            context.update({
+                'title': weather_data['name'],
+                'status': weather_data['weather'][0]['description'].capitalize(),
+                'temp': f"{weather_data['main']['temp']:.1f}",
+                'feels_like': f"{weather_data['main']['feels_like']:.1f}",
+                'humidity': weather_data['main']['humidity'],
+                'wind_speed': f"{weather_data['wind']['speed']:.1f}",
+                'icon': weather_data['weather'][0]['icon'],
+                'units': "F" if units == "imperial" else "C"
+            })
+            return render(request, 'weather.html', context)
+        except Exception as e:
+            messages.error(request, 'Error getting weather data. Please try again.')
             return render(request, 'city-not-found.html',
-                         self.get_context_data(error='Could not get weather for your location'))
-
-        context = self.get_context_data()
-        context.update({
-            'title': weather_data['name'],
-            'status': weather_data['weather'][0]['description'].capitalize(),
-            'temp': f"{weather_data['main']['temp']:.1f}",
-            'feels_like': f"{weather_data['main']['feels_like']:.1f}",
-            'humidity': weather_data['main']['humidity'],
-            'wind_speed': f"{weather_data['wind']['speed']:.1f}",
-            'icon': weather_data['weather'][0]['icon'],
-            'units': "F" if units == "imperial" else "C"
-        })
-        return render(request, 'weather.html', context)
+                        self.get_context_data(error='Error getting weather data. Please try again.'))
 
 class ForecastView(BaseContextMixin, View):
     def get(self, request):
-        city = request.GET.get('city')
+        city = request.GET.get('city', '').strip()
         units = request.GET.get('units', 'imperial')
 
         if not city:
             messages.error(request, 'Please enter a city name')
-            return render(request, 'city-not-found.html', self.get_context_data())
+            return render(request, 'index.html', self.get_context_data())
 
-        forecast_data = utils.get_forecast(city.strip(), units)
+        try:
+            forecast_data = utils.get_forecast(city, units)
 
-        if forecast_data.get('cod') != "200":
+            if forecast_data.get('cod') != "200":
+                messages.error(request, forecast_data.get('message', 'City not found'))
+                return render(request, 'city-not-found.html',
+                            self.get_context_data(error=forecast_data.get('message', 'City not found')))
+
+            # Group forecast data by day
+            daily_forecasts = {}
+            for item in forecast_data['list']:
+                date = datetime.fromtimestamp(item['dt']).strftime('%Y-%m-%d')
+                if date not in daily_forecasts:
+                    daily_forecasts[date] = {
+                        'date': datetime.fromtimestamp(item['dt']).strftime('%A, %B %d'),
+                        'temp_min': float('inf'),
+                        'temp_max': float('-inf'),
+                        'icon': item['weather'][0]['icon'],
+                        'description': item['weather'][0]['description'].capitalize(),
+                        'humidity': item['main']['humidity'],
+                        'wind_speed': item['wind']['speed']
+                    }
+                
+                daily_forecasts[date]['temp_min'] = min(daily_forecasts[date]['temp_min'], item['main']['temp_min'])
+                daily_forecasts[date]['temp_max'] = max(daily_forecasts[date]['temp_max'], item['main']['temp_max'])
+
+            context = self.get_context_data()
+            context.update({
+                'city': forecast_data['city']['name'],
+                'forecasts': list(daily_forecasts.values()),
+                'units': "F" if units == "imperial" else "C"
+            })
+            return render(request, 'forecast.html', context)
+        except Exception as e:
+            messages.error(request, 'Error getting forecast data. Please try again.')
             return render(request, 'city-not-found.html',
-                         self.get_context_data(error=forecast_data.get('message', 'City not found')))
-
-        # Group forecast data by day
-        daily_forecasts = {}
-        for item in forecast_data['list']:
-            date = datetime.fromtimestamp(item['dt']).strftime('%Y-%m-%d')
-            if date not in daily_forecasts:
-                daily_forecasts[date] = {
-                    'date': datetime.fromtimestamp(item['dt']).strftime('%A, %B %d'),
-                    'temp_min': float('inf'),
-                    'temp_max': float('-inf'),
-                    'icon': item['weather'][0]['icon'],
-                    'description': item['weather'][0]['description'].capitalize(),
-                    'humidity': item['main']['humidity'],
-                    'wind_speed': item['wind']['speed']
-                }
-            
-            daily_forecasts[date]['temp_min'] = min(daily_forecasts[date]['temp_min'], item['main']['temp_min'])
-            daily_forecasts[date]['temp_max'] = max(daily_forecasts[date]['temp_max'], item['main']['temp_max'])
-
-        context = self.get_context_data()
-        context.update({
-            'city': forecast_data['city']['name'],
-            'forecasts': list(daily_forecasts.values()),
-            'units': "F" if units == "imperial" else "C"
-        })
-        return render(request, 'forecast.html', context)
+                        self.get_context_data(error='Error getting forecast data. Please try again.'))
 
 class ToggleFavoriteView(LoginRequiredMixin, View):
     @method_decorator(csrf_exempt)
