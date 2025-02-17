@@ -4,7 +4,23 @@
     {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }} Weather</title>
+    <title>{{ title }} Weather - Weather Dashboard</title>
+    
+    <!-- App Configuration -->
+    <script type="application/json" id="appConfig">
+        {
+            "units": "{{ units }}",
+            "currentUnits": "{% if units == 'F' %}imperial{% else %}metric{% endif %}",
+            "cityName": "{{ title|escapejs }}",
+            "csrfToken": "{{ csrf_token }}",
+            "mapCenter": {{ map_center|safe }},
+            "mapZoom": {{ map_zoom }},
+            "isFavorite": {% if title in user.favorite_cities %}true{% else %}false{% endif %},
+            "isAuthenticated": {% if user.is_authenticated %}true{% else %}false{% endif %}
+        }
+    </script>
+    
+    <!-- Styles -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/css/ol.css">
     <link href="{% static 'styles/style.css' %}" rel="stylesheet">
@@ -16,9 +32,9 @@
             <div class="auth-nav">
                 {% if user.is_authenticated %}
                     <span class="welcome-text">Welcome, {{ user.username }}!</span>
-                    <form method="post" action="{% url 'logout' %}" class="logout-form">
+                    <form method="post" action="{% url 'logout' %}" class="logout-form" id="logoutForm">
                         {% csrf_token %}
-                        <button type="submit" class="logout-btn auth-link">
+                        <button type="submit" class="auth-link">
                             <i class="fas fa-sign-out-alt"></i> Logout
                         </button>
                     </form>
@@ -50,92 +66,191 @@
             </div>
             {% endif %}
 
-            {% if user.is_authenticated %}
-            <div class="favorite-toggle">
-                <button class="favorite-btn" data-city="{{ title }}">
-                    <i class="fas fa-star {% if title in user.favorite_cities %}active{% endif %}"></i>
-                    <span class="favorite-text">
-                        {% if title in user.favorite_cities %}Remove from{% else %}Add to{% endif %} Favorites
-                    </span>
-                </button>
-            </div>
-            {% endif %}
+            <div class="weather-content">
+                <div class="weather-details">
+                    <div class="weather-info">
+                        <div class="weather-detail">
+                            <div class="weather-icon">
+                                <img src="https://openweathermap.org/img/wn/{{ icon }}@2x.png" alt="{{ status }}">
+                            </div>
+                            <div class="temperature">{{ temp }}°{{ units }}</div>
+                            <div class="feels-like">Feels like {{ feels_like }}°{{ units }}</div>
+                            <div class="status">{{ status }}</div>
+                        </div>
 
-            <div class="weather-info">
-                <div class="weather-detail">
-                    <i class="fas fa-thermometer-half weather-icon"></i>
-                    <div class="temperature">{{ temp }}°{{ units }}</div>
-                    <div class="feels-like">Feels like {{ feels_like }}°{{ units }}</div>
-                    <div class="status">{{ status }}</div>
-                </div>
+                        <div class="weather-detail">
+                            <div class="weather-icon">
+                                <i class="fas fa-tint"></i>
+                            </div>
+                            <div class="humidity">{{ humidity }}%</div>
+                            <div class="status">Humidity</div>
+                        </div>
 
-                <div class="weather-detail">
-                    <i class="fas fa-wind weather-icon"></i>
-                    <div class="wind-speed">{{ wind_speed }} 
-                        {% if units == "F" %}mph{% else %}m/s{% endif %}
+                        <div class="weather-detail">
+                            <div class="weather-icon">
+                                <i class="fas fa-wind"></i>
+                            </div>
+                            <div class="wind-speed">{{ wind_speed }} mph</div>
+                            <div class="status">Wind Speed</div>
+                        </div>
                     </div>
-                    <div class="status">Wind Speed</div>
-                </div>
 
-                <div class="weather-detail">
-                    <i class="fas fa-tint weather-icon"></i>
-                    <div class="humidity">{{ humidity }}%</div>
-                    <div class="status">Humidity</div>
-                </div>
-            </div>
+                    {% if user.is_authenticated %}
+                    <div class="favorite-toggle">
+                        <button type="button" class="favorite-btn" id="favoriteBtn">
+                            <i class="fas fa-star {% if title in user.favorite_cities %}active{% endif %}"></i>
+                            {% if title in user.favorite_cities %}
+                                Remove from Favorites
+                            {% else %}
+                                Add to Favorites
+                            {% endif %}
+                        </button>
+                    </div>
+                    {% endif %}
 
-            <div class="map-container">
-                <div id="map" class="map" data-coordinates="{{ map_center|safe }}" data-zoom="{{ map_zoom }}"></div>
-            </div>
+                    <form action="{% url 'weather' %}" method="GET" class="search-form" id="weatherForm">
+                        <div class="search-container">
+                            <input type="text" 
+                                   name="city" 
+                                   id="city" 
+                                   placeholder="Search another city..."
+                                   value="{{ title }}"
+                                   list="city-suggestions"
+                                   autocomplete="off"
+                                   required>
+                            <datalist id="city-suggestions"></datalist>
+                            <button type="submit" id="submitBtn" class="search-btn">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
 
-            <form action="{% url 'weather' %}" id="weather-form" class="search-form" method="GET">
-                <div class="search-container">
-                    <input type="text" 
-                           name="city" 
-                           id="city" 
-                           placeholder="Search for a city..."
-                           list="city-suggestions"
-                           value="{{ title }}"
-                           autocomplete="off"
-                           required>
-                    <datalist id="city-suggestions"></datalist>
-                    <button type="submit" id="submit-btn" class="search-btn">
-                        <i class="fas fa-search"></i>
-                    </button>
-                </div>
+                        <div class="form-actions">
+                            <button type="button" id="locationBtn" class="location-btn">
+                                📍 Use My Location
+                            </button>
+                            
+                            <div class="units-toggle">
+                                <select name="units" id="units" onchange="this.form.submit()">
+                                    <option value="imperial" {% if units == 'F' %}selected{% endif %}>°F</option>
+                                    <option value="metric" {% if units == 'C' %}selected{% endif %}>°C</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
 
-                <div class="form-actions">
-                    <button type="button" id="get-location" class="location-btn">
-                        📍 Use My Location
-                    </button>
-                    
-                    <div class="units-toggle">
-                        <select name="units" id="units">
-                            <option value="imperial" {% if units == "F" %}selected{% endif %}>°F (Fahrenheit)</option>
-                            <option value="metric" {% if units == "C" %}selected{% endif %}>°C (Celsius)</option>
-                        </select>
+                    <div class="view-toggle">
+                        <a href="#" class="active" id="currentView">Current Weather</a>
+                        <a href="#" id="forecastView">5-Day Forecast</a>
                     </div>
                 </div>
-            </form>
 
-            <nav class="view-toggle">
-                <a href="{% url 'weather' %}?city={{ title }}&units={% if units == 'F' %}imperial{% else %}metric{% endif %}" class="active">Current Weather</a>
-                <a href="{% url 'forecast' %}?city={{ title }}&units={% if units == 'F' %}imperial{% else %}metric{% endif %}">5-Day Forecast</a>
-            </nav>
+                <div class="map-section">
+                    <div class="map-container">
+                        <div id="map" class="map"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/build/ol.js"></script>
-    {% load static %}
     <script src="{% static 'scripts/map.js' %}"></script>
     <script src="{% static 'scripts/app.js' %}" data-api-key="{{ WEATHER_API_KEY }}" defer></script>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const mapElement = document.getElementById('map');
+            // Initialize configuration
+            const CONFIG = JSON.parse(document.getElementById('appConfig').textContent);
+            
+            // Initialize map
             const apiKey = document.querySelector('script[data-api-key]').dataset.apiKey;
-            const coordinates = JSON.parse(mapElement.dataset.coordinates);
-            const zoom = parseInt(mapElement.dataset.zoom, 10);
-            initMap(apiKey, 'map', coordinates, zoom);
+            initMap(apiKey, 'map', CONFIG.mapCenter, CONFIG.mapZoom);
+
+            // Location button handler
+            const locationBtn = document.getElementById('locationBtn');
+            if (locationBtn) {
+                locationBtn.addEventListener('click', function() {
+                    if (!navigator.geolocation) {
+                        alert('Geolocation is not supported by your browser');
+                        return;
+                    }
+
+                    this.disabled = true;
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Getting Location...';
+                    
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            window.location.href = `/get-location-weather/?lat=${position.coords.latitude}&lon=${position.coords.longitude}&units=${CONFIG.currentUnits}`;
+                        },
+                        (error) => {
+                            this.disabled = false;
+                            this.innerHTML = '📍 Use My Location';
+                            alert('Error getting location: ' + error.message);
+                        }
+                    );
+                });
+            }
+
+            // View toggle handlers
+            const currentView = document.getElementById('currentView');
+            const forecastView = document.getElementById('forecastView');
+
+            if (currentView) {
+                currentView.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.location.href = `/weather/?city=${encodeURIComponent(CONFIG.cityName)}&units=${CONFIG.currentUnits}`;
+                });
+            }
+
+            if (forecastView) {
+                forecastView.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.location.href = `/forecast/?city=${encodeURIComponent(CONFIG.cityName)}&units=${CONFIG.currentUnits}`;
+                });
+            }
+
+            // Favorite toggle handler
+            if (CONFIG.isAuthenticated) {
+                const favoriteBtn = document.getElementById('favoriteBtn');
+                if (favoriteBtn) {
+                    favoriteBtn.addEventListener('click', function() {
+                        fetch('/toggle-favorite/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': CONFIG.csrfToken
+                            },
+                            body: JSON.stringify({ city: CONFIG.cityName })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            const icon = this.querySelector('i');
+                            if (data.status === 'added') {
+                                icon.classList.add('active');
+                                this.innerHTML = '<i class="fas fa-star active"></i> Remove from Favorites';
+                            } else {
+                                icon.classList.remove('active');
+                                this.innerHTML = '<i class="fas fa-star"></i> Add to Favorites';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Error updating favorites. Please try again.');
+                        });
+                    });
+                }
+            }
+
+            // Form submission handler
+            const weatherForm = document.getElementById('weatherForm');
+            const submitBtn = document.getElementById('submitBtn');
+            if (weatherForm && submitBtn) {
+                weatherForm.addEventListener('submit', function() {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                });
+            }
         });
     </script>
 </body>

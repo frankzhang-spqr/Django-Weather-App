@@ -1,113 +1,124 @@
-import requests
 import os
-from typing import Dict, Union, Any
+import requests
+import json
 import logging
-from django.conf import settings
+from difflib import get_close_matches
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Get API key from Django settings
-API_KEY = settings.WEATHER_API_KEY
-
-if not API_KEY:
-    raise EnvironmentError("OpenWeather API key not found. Please set API_KEY in .env file")
-
-BASE_URL = "http://api.openweathermap.org/data/2.5"
-GEO_URL = "http://api.openweathermap.org/geo/1.0"
-
-def handle_api_response(response: requests.Response, error_msg: str) -> Dict[str, Any]:
-    """Handle API response and errors"""
+def get_current_weather(city, units='imperial'):
+    """Get current weather for a city."""
     try:
+        api_key = os.getenv('API_KEY')
+        url = f'http://api.openweathermap.org/data/2.5/weather'
+        params = {
+            'q': city,
+            'appid': api_key,
+            'units': units
+        }
+        response = requests.get(url, params=params)
+        response.raise_for_status()  # Raise exception for 4XX and 5XX status codes
+        return response.json()
+    except requests.exceptions.HTTPError as http_err:
+        logger.error(f'HTTP error occurred: {http_err}')
+        return {'cod': response.status_code, 'message': str(http_err)}
+    except Exception as err:
+        logger.error(f'Error occurred: {err}')
+        return {'cod': 500, 'message': str(err)}
+
+def get_location_weather(lat, lon, units='imperial'):
+    """Get weather for specific coordinates."""
+    try:
+        api_key = os.getenv('API_KEY')
+        url = f'http://api.openweathermap.org/data/2.5/weather'
+        params = {
+            'lat': lat,
+            'lon': lon,
+            'appid': api_key,
+            'units': units
+        }
+        response = requests.get(url, params=params)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.HTTPError as http_err:
-        logger.error(f"HTTP error occurred: {http_err}")
-        return {"cod": response.status_code, "message": str(http_err)}
+        logger.error(f'HTTP error occurred: {http_err}')
+        return {'cod': response.status_code, 'message': str(http_err)}
     except Exception as err:
-        logger.error(f"Error occurred: {err}")
-        return {"cod": 500, "message": error_msg}
+        logger.error(f'Error occurred: {err}')
+        return {'cod': 500, 'message': str(err)}
 
-def get_location_weather(lat: float, lon: float, units: str = "imperial") -> Dict[str, Any]:
-    """Get weather data for specific coordinates"""
+def get_forecast(city, units='imperial'):
+    """Get 5-day forecast for a city."""
     try:
+        api_key = os.getenv('API_KEY')
+        url = f'http://api.openweathermap.org/data/2.5/forecast'
         params = {
-            "lat": lat,
-            "lon": lon,
-            "appid": API_KEY,
-            "units": units
+            'q': city,
+            'appid': api_key,
+            'units': units
         }
-        response = requests.get(f"{BASE_URL}/weather", params=params)
-        return handle_api_response(response, "Error getting weather data for location")
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.HTTPError as http_err:
+        logger.error(f'HTTP error occurred: {http_err}')
+        return {'cod': response.status_code, 'message': str(http_err)}
     except Exception as err:
-        logger.error(f"Error getting location weather: {err}")
-        return {"cod": 500, "message": "Unable to get weather for location"}
+        logger.error(f'Error occurred: {err}')
+        return {'cod': '500', 'message': str(err)}
 
-def get_current_weather(city: str, units: str = "imperial") -> Dict[str, Any]:
-    """Get current weather data for a city"""
-    try:
-        params = {
-            "q": city,
-            "appid": API_KEY,
-            "units": units
-        }
-        response = requests.get(f"{BASE_URL}/weather", params=params)
-        return handle_api_response(response, "Error getting current weather data")
-    except Exception as err:
-        logger.error(f"Error getting current weather: {err}")
-        return {"cod": 500, "message": "Unable to get current weather"}
+def get_city_suggestions(city):
+    """Get similar city name suggestions."""
+    common_cities = [
+        'London', 'New York', 'Tokyo', 'Paris', 'Sydney', 'Singapore', 'Dubai',
+        'Berlin', 'Madrid', 'Rome', 'Moscow', 'Beijing', 'Mumbai', 'Seoul',
+        'Toronto', 'Los Angeles', 'Chicago', 'Miami', 'Vancouver', 'Melbourne',
+        'Amsterdam', 'Barcelona', 'Vienna', 'San Francisco', 'Seattle',
+        'Hong Kong', 'Bangkok', 'Istanbul', 'Rio de Janeiro', 'Mexico City'
+    ]
+    
+    # Get close matches from common cities
+    matches = get_close_matches(city, common_cities, n=5, cutoff=0.6)
+    
+    # If no matches found, try searching with OpenWeather API
+    if not matches:
+        try:
+            api_key = os.getenv('API_KEY')
+            url = 'http://api.openweathermap.org/geo/1.0/direct'
+            params = {
+                'q': city,
+                'limit': 5,
+                'appid': api_key
+            }
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Extract city names from API response
+            api_suggestions = [f"{item['name']}, {item.get('country', '')}" for item in data]
+            matches.extend(api_suggestions)
+            
+        except Exception as err:
+            logger.error(f'Error getting city suggestions: {err}')
+    
+    return list(dict.fromkeys(matches))  # Remove duplicates while preserving order
 
-def get_forecast(city: str, units: str = "imperial") -> Dict[str, Any]:
-    """Get 5-day weather forecast for a city"""
-    try:
-        params = {
-            "q": city,
-            "appid": API_KEY,
-            "units": units
-        }
-        response = requests.get(f"{BASE_URL}/forecast", params=params)
-        return handle_api_response(response, "Error getting forecast data")
-    except Exception as err:
-        logger.error(f"Error getting forecast: {err}")
-        return {"cod": "500", "message": "Unable to get forecast data"}
+def sanitize_city_name(city):
+    """Clean and validate city name."""
+    if not city:
+        return ''
+    
+    # Remove special characters and extra spaces
+    clean_city = ''.join(c for c in city if c.isalnum() or c.isspace() or c == '-')
+    clean_city = ' '.join(clean_city.split())
+    
+    return clean_city
 
-def get_city_by_coords(lat: float, lon: float) -> Dict[str, Any]:
-    """Get city name from coordinates using reverse geocoding"""
+def format_temperature(temp, units='imperial'):
+    """Format temperature with proper unit symbol."""
     try:
-        params = {
-            "lat": lat,
-            "lon": lon,
-            "limit": 1,
-            "appid": API_KEY
-        }
-        response = requests.get(f"{GEO_URL}/reverse", params=params)
-        data = handle_api_response(response, "Error getting location data")
-        
-        if isinstance(data, list) and len(data) > 0:
-            return {"cod": 200, "name": data[0].get("name", "Unknown Location")}
-        return {"cod": 404, "message": "Location not found"}
-    except Exception as err:
-        logger.error(f"Error getting city by coords: {err}")
-        return {"cod": 500, "message": "Unable to get location information"}
-
-def search_cities(query: str) -> list:
-    """Search for cities using geocoding API"""
-    try:
-        params = {
-            "q": query,
-            "limit": 5,
-            "appid": API_KEY
-        }
-        response = requests.get(f"{GEO_URL}/direct", params=params)
-        data = handle_api_response(response, "Error searching cities")
-        
-        if isinstance(data, list):
-            return [{"name": city.get("name", ""),
-                    "state": city.get("state", ""),
-                    "country": city.get("country", "")} 
-                    for city in data]
-        return []
-    except Exception as err:
-        logger.error(f"Error searching cities: {err}")
-        return []
+        temp = float(temp)
+        unit_symbol = '°F' if units == 'imperial' else '°C'
+        return f"{temp:.1f}{unit_symbol}"
+    except (ValueError, TypeError):
+        return 'N/A'

@@ -36,61 +36,96 @@
                 <a href="{% url 'index' %}" class="back-button">
                     <i class="fas fa-arrow-left"></i> Back to Dashboard
                 </a>
-                <h1>Error</h1>
+                <h1>City Not Found</h1>
                 <p class="current-date">{{ current_date }}</p>
             </div>
 
-            {% if messages %}
-            <div class="messages">
-                {% for message in messages %}
-                <div class="{{ message.tags }}">
-                    {{ message }}
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
+            <div class="weather-content">
+                <div class="weather-details">
+                    {% if messages %}
+                    <div class="messages">
+                        {% for message in messages %}
+                        <div class="{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
 
-            <div class="error-container">
-                <div class="error-icon">
-                    <i class="fas fa-city"></i>
-                </div>
-                <div class="error-message">
-                    {{ error|default:"City not found. Please try again." }}
-                </div>
-            </div>
+                    <div class="error-container">
+                        <div class="error-icon">
+                            <i class="fas fa-city"></i>
+                        </div>
+                        <div class="error-message">
+                            {{ error|default:"City not found. Please try another search or check out our suggestions below." }}
+                        </div>
+                    </div>
 
-            <div class="map-container">
-                <div id="map" class="map" data-coordinates="{{ map_center|default:'[0, 20]' }}" data-zoom="{{ map_zoom|default:2 }}"></div>
-            </div>
+                    {% if suggestions %}
+                    <div class="city-suggestions">
+                        <h3 class="suggestion-title">Did you mean?</h3>
+                        <ul class="suggestion-list">
+                            {% for suggestion in suggestions %}
+                            <li class="suggestion-item" onclick="selectCity('{{ suggestion }}')">
+                                <i class="fas fa-map-marker-alt"></i>
+                                {{ suggestion }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% else %}
+                    <div class="city-suggestions">
+                        <h3 class="suggestion-title">Popular Cities</h3>
+                        <ul class="suggestion-list">
+                            <li class="suggestion-item" onclick="selectCity('London')">
+                                <i class="fas fa-map-marker-alt"></i> London
+                            </li>
+                            <li class="suggestion-item" onclick="selectCity('New York')">
+                                <i class="fas fa-map-marker-alt"></i> New York
+                            </li>
+                            <li class="suggestion-item" onclick="selectCity('Tokyo')">
+                                <i class="fas fa-map-marker-alt"></i> Tokyo
+                            </li>
+                            <li class="suggestion-item" onclick="selectCity('Paris')">
+                                <i class="fas fa-map-marker-alt"></i> Paris
+                            </li>
+                            <li class="suggestion-item" onclick="selectCity('Sydney')">
+                                <i class="fas fa-map-marker-alt"></i> Sydney
+                            </li>
+                        </ul>
+                    </div>
+                    {% endif %}
 
-            <form action="{% url 'weather' %}" id="weather-form" class="search-form" method="GET">
-                <div class="search-container">
-                    <input type="text" 
-                           name="city" 
-                           id="city" 
-                           placeholder="Try another city..."
-                           list="city-suggestions"
-                           autocomplete="off"
-                           required>
-                    <datalist id="city-suggestions"></datalist>
-                    <button type="submit" id="submit-btn" class="search-btn">
-                        <i class="fas fa-search"></i>
-                    </button>
+                    <form action="{% url 'weather' %}" id="weather-form" class="search-form" method="GET">
+                        <div class="search-container">
+                            <input type="text" 
+                                   name="city" 
+                                   id="city" 
+                                   placeholder="Try another city..."
+                                   list="city-suggestions"
+                                   autocomplete="off"
+                                   required>
+                            <datalist id="city-suggestions"></datalist>
+                            <button type="submit" id="submit-btn" class="search-btn">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" id="get-location" class="location-btn">
+                                📍 Use My Location
+                            </button>
+                        </div>
+                        <input type="hidden" name="units" id="units" value="{% if units == 'F' %}imperial{% else %}metric{% endif %}">
+                    </form>
                 </div>
 
-                <div class="form-actions">
-                    <button type="button" id="get-location" class="location-btn">
-                        📍 Use My Location
-                    </button>
-                    
-                    <div class="units-toggle">
-                        <select name="units" id="units">
-                            <option value="imperial">°F (Fahrenheit)</option>
-                            <option value="metric">°C (Celsius)</option>
-                        </select>
+                <div class="map-section">
+                    <div class="map-container">
+                        <div id="map" class="map" data-coordinates="{{ map_center|default:'[0, 20]' }}" data-zoom="{{ map_zoom|default:2 }}"></div>
                     </div>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -105,6 +140,34 @@
             const coordinates = JSON.parse(mapElement.dataset.coordinates);
             const zoom = parseInt(mapElement.dataset.zoom, 10);
             initMap(apiKey, 'map', coordinates, zoom);
+
+            // Function to select suggested city
+            window.selectCity = function(city) {
+                document.getElementById('city').value = city;
+                document.getElementById('weather-form').submit();
+            };
+
+            // Handle location button
+            const locationBtn = document.getElementById('get-location');
+            locationBtn.addEventListener('click', function() {
+                if (navigator.geolocation) {
+                    locationBtn.disabled = true;
+                    locationBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Getting Location...';
+                    
+                    navigator.geolocation.getCurrentPosition(
+                        function(position) {
+                            window.location.href = `/get-location-weather/?lat=${position.coords.latitude}&lon=${position.coords.longitude}&units={% if units == 'F' %}imperial{% else %}metric{% endif %}`;
+                        },
+                        function(error) {
+                            locationBtn.disabled = false;
+                            locationBtn.innerHTML = '📍 Use My Location';
+                            alert('Error getting location: ' + error.message);
+                        }
+                    );
+                } else {
+                    alert('Geolocation is not supported by your browser');
+                }
+            });
         });
     </script>
 </body>

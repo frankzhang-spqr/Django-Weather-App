@@ -1,149 +1,256 @@
-# Weather Dashboard
+# Weather Application
 
-A modern and responsive Flask web application that provides real-time weather information and forecasts. Built with Python Flask and the OpenWeather API.
-
-**Note**: Still devloping all the features below and adding new ones the plan is to be done by the end of March 
+A modern, user-friendly weather application built with Django that provides real-time weather data and interactive maps.
 
 ## Features
 
-- 🌍 **Real-time Weather Data**: Get current weather conditions for any city worldwide
-- 📍 **Geolocation Support**: Automatically fetch weather for your current location
-- 🔍 **Smart Search**: City search with autocomplete suggestions
-- 🌡️ **Unit Conversion**: Toggle between Fahrenheit and Celsius
-- 📅 **5-Day Forecast**: View detailed weather forecasts
-- 👤 **User Authentication**: Secure login and registration system
-- ⭐ **Favorite Cities**: Save and manage your favorite locations
-- 📱 **Responsive Design**: Works seamlessly on desktop and mobile devices
-- 🎨 **Modern UI**: Clean and intuitive interface with smooth animations
+### Core Features
+- Real-time weather data display
+- 5-day weather forecast
+- Interactive map integration
+- User location detection
+- Temperature unit conversion (°C/°F)
+- City search with auto-suggestions
+- Mobile-responsive design
 
-## Live Demo
+### User Features
+- User authentication (register/login)
+- Favorite cities management
+- Personalized dashboard
 
-Access the live application here: https://flask-weather-app-b3d4.onrender.com
+### Technical Features
+- OpenWeatherMap API integration
+- OpenLayers map integration
+- Responsive and accessible UI
+- Progressive enhancement
+- Cross-browser compatibility
+- Optimized performance
 
-## Setup
+## Technology Stack
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/Flask-Weather-App.git
-   cd Flask-Weather-App
-   ```
+### Backend
+- **Python 3.x**: Core programming language
+- **Django**: Web framework
+- **SQLite**: Database (default)
 
-2. Create a virtual environment and activate it:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+### Frontend
+- **HTML5/CSS3**: Structure and styling
+- **JavaScript (ES6+)**: Client-side functionality
+- **Font Awesome**: Icons
+- **OpenLayers**: Interactive maps
 
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### APIs
+- OpenWeatherMap API: Weather data
+- Geolocation API: User location detection
 
-4. Create a `.env` file in the root directory and add your environment variables:
-   ```
-   API_KEY=your_openweather_api_key
-   SECRET_KEY=your_secret_key
-   FLASK_ENV=development
-   ```
-   Get your API key from [OpenWeather](https://openweathermap.org/api)
+## Project Structure
 
-5. Run the application:
-   ```bash
-   python server.py
-   ```
-
-6. Open your browser and navigate to `http://localhost:8000`
-
-## Deployment to Render.com
-
-1. Create a new account on [Render](https://render.com) if you haven't already.
-
-2. Create a new Web Service:
-   - Connect your GitHub repository
-   - Select the branch to deploy
-   - Choose "Python 3" as the environment
-   - Set the build command: `pip install -r requirements.txt`
-   - Set the start command: `gunicorn server:app`
-
-3. Add Environment Variables in Render Dashboard:
-   - `API_KEY`: Your OpenWeather API key
-   - `SECRET_KEY`: A secure random string for session management
-   - `FLASK_ENV`: Set to "production"
-   - `DATABASE_URL`: Will be automatically added by Render when you add PostgreSQL
-
-4. Add PostgreSQL Database:
-   - Go to "New +" in Render Dashboard
-   - Select "PostgreSQL"
-   - Connect it to your web service
-   - The `DATABASE_URL` will be automatically added to your web service
-
-5. Deploy your application.
-
-## Features in Detail
-
-### User Authentication
-- Secure registration and login system
-- Password encryption and validation
-- Protected routes for authenticated users
-- Flash messages for user feedback
-
-### Weather Information
-- Current temperature and "feels like" temperature
-- Weather conditions with descriptive icons
-- Wind speed and humidity levels
-- Option to toggle between Fahrenheit and Celsius
-
-### 5-Day Forecast
-- Daily temperature ranges (high/low)
-- Weather conditions and icons
-- Wind speed and humidity forecasts
-- Easy navigation between current weather and forecast views
-
-### Search Functionality
-- Real-time city suggestions as you type
-- Support for international locations
-- Clear error handling for invalid searches
-
-### Favorite Cities
-- Save frequently checked cities
-- Quick access to favorite locations
-- Easy management of saved cities
-
-## Technologies Used
-
-- **Backend**:
-  - Python 3.x
-  - Flask
-  - Flask-Login for authentication
-  - Flask-SQLAlchemy for database management
-  - PostgreSQL for production database
-  - SQLite for development
-  - Gunicorn for production server
-
-- **Frontend**:
-  - HTML5
-  - CSS3 with modern features (Grid, Flexbox, CSS Variables)
-  - JavaScript (ES6+)
-  - Font Awesome icons
-  - OpenWeather API
-
-## Database Schema
-
-The application uses SQLAlchemy with the following model:
-
-```python
-class User:
-    id: Integer (Primary Key)
-    email: String (Unique)
-    username: String (Unique)
-    password_hash: String
-    favorite_cities: JSON
 ```
+Weather-App/
+│
+├── static/                # Static files
+│   ├── scripts/           # JavaScript files
+│   │   ├── app.js         # Main application logic
+│   │   └── map.js         # Map functionality
+│   │
+│   └── styles/            # CSS files
+│       ├── style.css      # Main styles
+│       └── map.css        # Map-specific styles
+│
+├── templates/             # HTML templates
+│   ├── index.html         # Homepage
+│   ├── weather.html       # Weather details
+│   ├── forecast.html      # 5-day forecast
+│   ├── login.html         # User login
+│   └── register.html      # User registration
+│
+├── weather_app/           # Main Django app
+│   ├── views.py           # View controllers
+│   ├── models.py          # Database models
+│   ├── urls.py            # URL routing
+│   ├── utils.py           # Utility functions
+│   └── auth.py            # Authentication logic
+│
+└── weather_project/       # Django project settings
+    ├── settings.py        # Project configuration
+    └── urls.py            # Project URL routing
+```
+
+## Code Details
+
+### Frontend Components
+
+#### HTML Templates
+- **base.html**: Base template with common elements
+- **index.html**: Homepage with search and favorites
+- **weather.html**: Current weather display with map
+- **forecast.html**: 5-day forecast view
+- **login.html/register.html**: Authentication forms
+
+#### CSS Structure
+- **style.css**: 
+  - Modern, responsive design system
+  - CSS variables for theming
+  - Flexbox/Grid layouts
+  - Smooth animations
+  - Mobile-first approach
+  - Accessibility features
+  - Dark mode support
+
+- **map.css**:
+  - OpenLayers map customization
+  - Custom controls styling
+  - Responsive map layouts
+  - Layer switcher design
+
+#### JavaScript Modules
+- **app.js**:
+  - API integration
+  - Search functionality
+  - Location detection
+  - Favorites management
+  - Unit conversion
+  - Dynamic updates
+
+- **map.js**:
+  - Map initialization
+  - Layer management
+  - Custom controls
+  - Location markers
+  - Weather overlays
+
+### Backend Components
+
+#### Models (models.py)
+- User model extensions
+- Favorite cities storage
+- Search history tracking
+- API cache management
+
+#### Views (views.py)
+- Weather data retrieval
+- Forecast processing
+- User authentication
+- Favorites management
+- API error handling
+
+#### Utils (utils.py)
+- API request handling
+- Data formatting
+- Cache management
+- Error handling
+- Location processing
+
+## User Interface Features
+
+### Visual Design
+- Clean, modern aesthetic
+- Intuitive navigation
+- Responsive layouts
+- Smooth transitions
+- Clear typography
+- Consistent spacing
+
+### Interactive Elements
+- Hoverable cards
+- Animated buttons
+- Loading states
+- Error feedback
+- Success messages
+- Form validation
+
+### Accessibility
+- ARIA labels
+- Keyboard navigation
+- High contrast mode
+- Reduced motion option
+- Screen reader support
+- Focus management
+
+### Responsive Design
+- Mobile-first approach
+- Fluid layouts
+- Adaptive components
+- Touch-friendly controls
+- Optimized images
+- Performance focused
+
+## Setting Up the Project
+
+1. Clone the repository
+```bash
+git clone https://github.com/yourusername/Weather-App.git
+cd Weather-App
+```
+
+2. Create a virtual environment
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+4. Set up environment variables
+```bash
+cp .env.example .env
+# Edit .env with your OpenWeatherMap API key
+```
+
+5. Run migrations
+```bash
+python manage.py migrate
+```
+
+6. Start development server
+```bash
+python manage.py runserver
+```
+
+## API Configuration
+
+1. Get an API key from [OpenWeatherMap](https://openweathermap.org/api)
+2. Add the API key to your `.env` file:
+```
+OPENWEATHER_API_KEY=your_api_key_here
+```
+
+## Development Guidelines
+
+### Code Style
+- Follow PEP 8 for Python code
+- Use ESLint for JavaScript
+- Maintain consistent indentation
+- Write clear comments
+- Use meaningful variable names
+
+### Best Practices
+- Write unit tests
+- Document code changes
+- Use version control
+- Handle errors gracefully
+- Cache API responses
+- Optimize database queries
+
+## Browser Support
+
+- Chrome (last 2 versions)
+- Firefox (last 2 versions)
+- Safari (last 2 versions)
+- Edge (last 2 versions)
+- Mobile browsers
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
-This project is open source and available under the [MIT License](LICENSE).
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
