@@ -7,7 +7,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from datetime import datetime
 from django.db import transaction
 from . import utils
@@ -17,23 +17,64 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def get_units_from_session(request):
+    """Helper function to get units from session with default to imperial."""
+    return request.session.get('units', 'imperial')
+
 class BaseContextMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs) if hasattr(super(), 'get_context_data') else {}
         context['current_date'] = datetime.now().strftime("%A, %B %d, %Y")
+        
+        # Get units from session
+        units = get_units_from_session(self.request)
+        context['units'] = 'F' if units == 'imperial' else 'C'
+        
         if self.request.user.is_authenticated:
             favorite_weather = []
             for city in self.request.user.favorite_cities:
-                weather = utils.get_current_weather(city)
+                weather = utils.get_current_weather(city, units)
                 if weather.get('cod') == 200:
+                    temp = utils.format_temperature(weather['main']['temp'], units)
                     favorite_weather.append({
                         'city': city,
-                        'temp': f"{weather['main']['temp']:.1f}",
+                        'temp': temp.split('°')[0],  # Remove unit symbol as it's added in template
                         'status': weather['weather'][0]['description'].capitalize(),
                         'icon': weather['weather'][0]['icon']
                     })
             context['favorite_weather'] = favorite_weather
         return context
+
+@method_decorator(ensure_csrf_cookie, name='dispatch')
+class SetUnitsView(View):
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            units = data.get('units')
+            
+            if units not in ['imperial', 'metric']:
+                return JsonResponse({'error': 'Invalid units'}, status=400)
+            
+            # Store units in session
+            request.session['units'] = units
+            logger.info(f"Units set to {units} for session")
+            
+            return JsonResponse({'status': 'success'})
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON received in SetUnitsView")
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            logger.error(f"Error in SetUnitsView: {str(e)}")
+            return JsonResponse({'error': 'Server error'}, status=500)
+
+    def get(self, request):
+        units = request.GET.get('units')
+        if units in ['imperial', 'metric']:
+            request.session['units'] = units
+            logger.info(f"Units set to {units} for session")
+            return redirect(request.META.get('HTTP_REFERER', 'index'))
+        return JsonResponse({'error': 'Invalid units'}, status=400)
 
 class IndexView(BaseContextMixin, TemplateView):
     template_name = 'index.html'
@@ -56,7 +97,7 @@ class LoginView(BaseLoginView):
 
     def post(self, request, *args, **kwargs):
         try:
-            email = request.POST.get('username', '').strip().lower()  # Form uses 'username' field for email
+            email = request.POST.get('username', '').strip().lower()
             password = request.POST.get('password', '')
             
             logger.info(f"Login attempt for email: {email}")
@@ -172,7 +213,7 @@ class CustomLogoutView(View):
 class WeatherView(BaseContextMixin, View):
     def get(self, request):
         city = request.GET.get('city', '').strip()
-        units = request.GET.get('units', 'imperial')
+        units = get_units_from_session(request)
 
         if not city:
             return render(request, 'index.html', self.get_context_data())
@@ -188,8 +229,7 @@ class WeatherView(BaseContextMixin, View):
                 context = self.get_context_data()
                 context.update({
                     'error': weather_data.get('message', 'City not found'),
-                    'suggestions': suggestions,
-                    'units': "F" if units == "imperial" else "C"
+                    'suggestions': suggestions
                 })
                 return render(request, 'city-not-found.html', context)
 
@@ -201,12 +241,11 @@ class WeatherView(BaseContextMixin, View):
             context.update({
                 'title': weather_data['name'],
                 'status': weather_data['weather'][0]['description'].capitalize(),
-                'temp': utils.format_temperature(weather_data['main']['temp'], units),
-                'feels_like': utils.format_temperature(weather_data['main']['feels_like'], units),
+                'temp': utils.format_temperature(weather_data['main']['temp'], units).split('°')[0],
+                'feels_like': utils.format_temperature(weather_data['main']['feels_like'], units).split('°')[0],
                 'humidity': weather_data['main']['humidity'],
                 'wind_speed': f"{weather_data['wind']['speed']:.1f}",
                 'icon': weather_data['weather'][0]['icon'],
-                'units': "F" if units == "imperial" else "C",
                 'map_center': json.dumps([lon, lat]),
                 'map_zoom': 10
             })
@@ -217,8 +256,7 @@ class WeatherView(BaseContextMixin, View):
             context = self.get_context_data()
             context.update({
                 'error': 'Error getting weather data. Please try again.',
-                'suggestions': utils.get_city_suggestions(city),
-                'units': "F" if units == "imperial" else "C"
+                'suggestions': utils.get_city_suggestions(city)
             })
             return render(request, 'city-not-found.html', context)
 
@@ -226,7 +264,7 @@ class LocationWeatherView(BaseContextMixin, View):
     def get(self, request):
         lat = request.GET.get('lat')
         lon = request.GET.get('lon')
-        units = request.GET.get('units', 'imperial')
+        units = get_units_from_session(request)
 
         if not lat or not lon:
             messages.error(request, 'Location data is required')
@@ -244,12 +282,11 @@ class LocationWeatherView(BaseContextMixin, View):
             context.update({
                 'title': weather_data['name'],
                 'status': weather_data['weather'][0]['description'].capitalize(),
-                'temp': utils.format_temperature(weather_data['main']['temp'], units),
-                'feels_like': utils.format_temperature(weather_data['main']['feels_like'], units),
+                'temp': utils.format_temperature(weather_data['main']['temp'], units).split('°')[0],
+                'feels_like': utils.format_temperature(weather_data['main']['feels_like'], units).split('°')[0],
                 'humidity': weather_data['main']['humidity'],
                 'wind_speed': f"{weather_data['wind']['speed']:.1f}",
                 'icon': weather_data['weather'][0]['icon'],
-                'units': "F" if units == "imperial" else "C",
                 'map_center': json.dumps([float(lon), float(lat)]),
                 'map_zoom': 10
             })
@@ -263,7 +300,7 @@ class LocationWeatherView(BaseContextMixin, View):
 class ForecastView(BaseContextMixin, View):
     def get(self, request):
         city = request.GET.get('city', '').strip()
-        units = request.GET.get('units', 'imperial')
+        units = get_units_from_session(request)
 
         if not city:
             messages.error(request, 'Please enter a city name')
@@ -280,8 +317,7 @@ class ForecastView(BaseContextMixin, View):
                 context = self.get_context_data()
                 context.update({
                     'error': forecast_data.get('message', 'City not found'),
-                    'suggestions': suggestions,
-                    'units': "F" if units == "imperial" else "C"
+                    'suggestions': suggestions
                 })
                 return render(request, 'city-not-found.html', context)
 
@@ -300,8 +336,10 @@ class ForecastView(BaseContextMixin, View):
                         'wind_speed': item['wind']['speed']
                     }
                 
-                daily_forecasts[date]['temp_min'] = min(daily_forecasts[date]['temp_min'], item['main']['temp_min'])
-                daily_forecasts[date]['temp_max'] = max(daily_forecasts[date]['temp_max'], item['main']['temp_max'])
+                daily_forecasts[date]['temp_min'] = min(daily_forecasts[date]['temp_min'], 
+                                                       float(utils.format_temperature(item['main']['temp_min'], units).split('°')[0]))
+                daily_forecasts[date]['temp_max'] = max(daily_forecasts[date]['temp_max'], 
+                                                       float(utils.format_temperature(item['main']['temp_max'], units).split('°')[0]))
 
             context = self.get_context_data()
             # Format coordinates for JavaScript
@@ -311,7 +349,6 @@ class ForecastView(BaseContextMixin, View):
             context.update({
                 'city': forecast_data['city']['name'],
                 'forecasts': list(daily_forecasts.values()),
-                'units': "F" if units == "imperial" else "C",
                 'map_center': json.dumps([lon, lat]),
                 'map_zoom': 10
             })
@@ -322,13 +359,12 @@ class ForecastView(BaseContextMixin, View):
             context = self.get_context_data()
             context.update({
                 'error': 'Error getting forecast data. Please try again.',
-                'suggestions': utils.get_city_suggestions(city),
-                'units': "F" if units == "imperial" else "C"
+                'suggestions': utils.get_city_suggestions(city)
             })
             return render(request, 'city-not-found.html', context)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class ToggleFavoriteView(LoginRequiredMixin, View):
-    @method_decorator(csrf_exempt)
     def post(self, request):
         try:
             data = json.loads(request.body)

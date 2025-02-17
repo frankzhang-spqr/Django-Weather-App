@@ -5,12 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }} Weather - Weather Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/css/ol.css">
+    <link href="{% static 'styles/style.css' %}" rel="stylesheet">
+    <link href="{% static 'styles/map.css' %}" rel="stylesheet">
     
     <!-- App Configuration -->
     <script type="application/json" id="appConfig">
         {
-            "units": "{{ units }}",
-            "currentUnits": "{% if units == 'F' %}imperial{% else %}metric{% endif %}",
+            "units": "{% if units == 'F' %}imperial{% else %}metric{% endif %}",
             "cityName": "{{ title|escapejs }}",
             "csrfToken": "{{ csrf_token }}",
             "mapCenter": {{ map_center|safe }},
@@ -19,12 +22,6 @@
             "isAuthenticated": {% if user.is_authenticated %}true{% else %}false{% endif %}
         }
     </script>
-    
-    <!-- Styles -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/css/ol.css">
-    <link href="{% static 'styles/style.css' %}" rel="stylesheet">
-    <link href="{% static 'styles/map.css' %}" rel="stylesheet">
 </head>
 <body>
     <div class="container">
@@ -32,12 +29,18 @@
             <div class="auth-nav">
                 {% if user.is_authenticated %}
                     <span class="welcome-text">Welcome, {{ user.username }}!</span>
-                    <form method="post" action="{% url 'logout' %}" class="logout-form" id="logoutForm">
+                    <form method="post" action="{% url 'logout' %}" class="logout-form">
                         {% csrf_token %}
                         <button type="submit" class="auth-link">
                             <i class="fas fa-sign-out-alt"></i> Logout
                         </button>
                     </form>
+                    <div class="units-toggle">
+                        <select id="globalUnits" onchange="updateUnits(this.value)">
+                            <option value="imperial" {% if units == 'F' %}selected{% endif %}>°F</option>
+                            <option value="metric" {% if units == 'C' %}selected{% endif %}>°C</option>
+                        </select>
+                    </div>
                 {% else %}
                     <a href="{% url 'login' %}" class="auth-link">
                         <i class="fas fa-sign-in-alt"></i> Login
@@ -99,11 +102,13 @@
                     <div class="favorite-toggle">
                         <button type="button" class="favorite-btn" id="favoriteBtn">
                             <i class="fas fa-star {% if title in user.favorite_cities %}active{% endif %}"></i>
-                            {% if title in user.favorite_cities %}
-                                Remove from Favorites
-                            {% else %}
-                                Add to Favorites
-                            {% endif %}
+                            <span>
+                                {% if title in user.favorite_cities %}
+                                    Remove from Favorites
+                                {% else %}
+                                    Add to Favorites
+                                {% endif %}
+                            </span>
                         </button>
                     </div>
                     {% endif %}
@@ -128,13 +133,6 @@
                             <button type="button" id="locationBtn" class="location-btn">
                                 📍 Use My Location
                             </button>
-                            
-                            <div class="units-toggle">
-                                <select name="units" id="units" onchange="this.form.submit()">
-                                    <option value="imperial" {% if units == 'F' %}selected{% endif %}>°F</option>
-                                    <option value="metric" {% if units == 'C' %}selected{% endif %}>°C</option>
-                                </select>
-                            </div>
                         </div>
                     </form>
 
@@ -153,21 +151,18 @@
         </div>
     </div>
 
-    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/build/ol.js"></script>
+    {% load static %}
     <script src="{% static 'scripts/map.js' %}"></script>
-    <script src="{% static 'scripts/app.js' %}" data-api-key="{{ WEATHER_API_KEY }}" defer></script>
-    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize configuration
             const CONFIG = JSON.parse(document.getElementById('appConfig').textContent);
             
             // Initialize map
             const apiKey = document.querySelector('script[data-api-key]').dataset.apiKey;
             initMap(apiKey, 'map', CONFIG.mapCenter, CONFIG.mapZoom);
 
-            // Location button handler
+            // Handle location button
             const locationBtn = document.getElementById('locationBtn');
             if (locationBtn) {
                 locationBtn.addEventListener('click', function() {
@@ -180,15 +175,69 @@
                     this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Getting Location...';
                     
                     navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                            window.location.href = `/get-location-weather/?lat=${position.coords.latitude}&lon=${position.coords.longitude}&units=${CONFIG.currentUnits}`;
+                        function(position) {
+                            window.location.href = `/get-location-weather/?lat=${position.coords.latitude}&lon=${position.coords.longitude}&units=${CONFIG.units}`;
                         },
-                        (error) => {
-                            this.disabled = false;
-                            this.innerHTML = '📍 Use My Location';
+                        function(error) {
+                            locationBtn.disabled = false;
+                            locationBtn.innerHTML = '📍 Use My Location';
                             alert('Error getting location: ' + error.message);
                         }
                     );
+                });
+            }
+
+            // Handle units toggle
+            window.updateUnits = function(value) {
+                fetch('/set-units/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CONFIG.csrfToken
+                    },
+                    body: JSON.stringify({ units: value })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        window.location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error updating units. Please try again.');
+                });
+            };
+
+            // Handle favorite toggle
+            const favoriteBtn = document.getElementById('favoriteBtn');
+            if (favoriteBtn && CONFIG.isAuthenticated) {
+                favoriteBtn.addEventListener('click', function() {
+                    fetch('/toggle-favorite/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': CONFIG.csrfToken
+                        },
+                        body: JSON.stringify({ city: CONFIG.cityName })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        const icon = this.querySelector('i');
+                        const text = this.querySelector('span');
+                        
+                        if (data.status === 'added') {
+                            icon.classList.add('active');
+                            text.textContent = 'Remove from Favorites';
+                        } else {
+                            icon.classList.remove('active');
+                            text.textContent = 'Add to Favorites';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error updating favorites. Please try again.');
+                    });
                 });
             }
 
@@ -199,59 +248,18 @@
             if (currentView) {
                 currentView.addEventListener('click', function(e) {
                     e.preventDefault();
-                    window.location.href = `/weather/?city=${encodeURIComponent(CONFIG.cityName)}&units=${CONFIG.currentUnits}`;
+                    window.location.href = `/weather/?city=${encodeURIComponent(CONFIG.cityName)}&units=${CONFIG.units}`;
                 });
             }
 
             if (forecastView) {
                 forecastView.addEventListener('click', function(e) {
                     e.preventDefault();
-                    window.location.href = `/forecast/?city=${encodeURIComponent(CONFIG.cityName)}&units=${CONFIG.currentUnits}`;
-                });
-            }
-
-            // Favorite toggle handler
-            if (CONFIG.isAuthenticated) {
-                const favoriteBtn = document.getElementById('favoriteBtn');
-                if (favoriteBtn) {
-                    favoriteBtn.addEventListener('click', function() {
-                        fetch('/toggle-favorite/', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': CONFIG.csrfToken
-                            },
-                            body: JSON.stringify({ city: CONFIG.cityName })
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            const icon = this.querySelector('i');
-                            if (data.status === 'added') {
-                                icon.classList.add('active');
-                                this.innerHTML = '<i class="fas fa-star active"></i> Remove from Favorites';
-                            } else {
-                                icon.classList.remove('active');
-                                this.innerHTML = '<i class="fas fa-star"></i> Add to Favorites';
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            alert('Error updating favorites. Please try again.');
-                        });
-                    });
-                }
-            }
-
-            // Form submission handler
-            const weatherForm = document.getElementById('weatherForm');
-            const submitBtn = document.getElementById('submitBtn');
-            if (weatherForm && submitBtn) {
-                weatherForm.addEventListener('submit', function() {
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    window.location.href = `/forecast/?city=${encodeURIComponent(CONFIG.cityName)}&units=${CONFIG.units}`;
                 });
             }
         });
     </script>
+    <script src="{% static 'scripts/app.js' %}" data-api-key="{{ WEATHER_API_KEY }}" defer></script>
 </body>
 </html>

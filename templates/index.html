@@ -9,6 +9,17 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/css/ol.css">
     <link href="{% static 'styles/style.css' %}" rel="stylesheet">
     <link href="{% static 'styles/map.css' %}" rel="stylesheet">
+    
+    <!-- App Configuration -->
+    <script type="application/json" id="appConfig">
+        {
+            "units": "{% if units == 'F' %}imperial{% else %}metric{% endif %}",
+            "csrfToken": "{{ csrf_token }}",
+            "mapCenter": {{ map_center|default:'[0, 20]'|safe }},
+            "mapZoom": {{ map_zoom|default:2 }},
+            "isAuthenticated": {% if user.is_authenticated %}true{% else %}false{% endif %}
+        }
+    </script>
 </head>
 <body>
     <div class="container">
@@ -18,10 +29,16 @@
                     <span class="welcome-text">Welcome, {{ user.username }}!</span>
                     <form method="post" action="{% url 'logout' %}" class="logout-form">
                         {% csrf_token %}
-                        <button type="submit" class="logout-btn auth-link">
+                        <button type="submit" class="auth-link">
                             <i class="fas fa-sign-out-alt"></i> Logout
                         </button>
                     </form>
+                    <div class="units-toggle">
+                        <select id="globalUnits" onchange="updateUnits(this.value)">
+                            <option value="imperial" {% if units == 'F' %}selected{% endif %}>°F</option>
+                            <option value="metric" {% if units == 'C' %}selected{% endif %}>°C</option>
+                        </select>
+                    </div>
                 {% else %}
                     <a href="{% url 'login' %}" class="auth-link">
                         <i class="fas fa-sign-in-alt"></i> Login
@@ -30,6 +47,11 @@
                         <i class="fas fa-user-plus"></i> Register
                     </a>
                 {% endif %}
+            </div>
+
+            <div class="weather-header">
+                <h1>Weather Dashboard</h1>
+                <p class="current-date">{{ current_date }}</p>
             </div>
 
             {% if messages %}
@@ -42,95 +64,147 @@
             </div>
             {% endif %}
 
-            <div class="weather-header">
-                <h1>Weather Dashboard</h1>
-                <p class="current-date">{{ current_date }}</p>
-            </div>
-
-            <div class="map-container">
-                <div id="map" class="map" data-coordinates="{{ map_center|default:'[0, 20]' }}" data-zoom="{{ map_zoom|default:2 }}"></div>
-            </div>
-
-            {% if user.is_authenticated %}
-                {% if user.favorite_cities %}
-                    <div class="favorite-cities">
-                        <h3>Your Favorite Cities</h3>
-                        <div class="favorite-grid">
-                            {% for weather in favorite_weather %}
-                                <div class="favorite-weather-card">
-                                    <a href="{% url 'weather' %}?city={{ weather.city }}&units=imperial" class="favorite-city">
-                                        <i class="fas fa-star"></i>
-                                        {{ weather.city }}
-                                    </a>
-                                    <div class="favorite-weather-info">
-                                        <img src="https://openweathermap.org/img/wn/{{ weather.icon }}.png" alt="Weather icon">
-                                        <span class="temp">{{ weather.temp }}°F</span>
-                                        <span class="status">{{ weather.status }}</span>
-                                    </div>
+            <div class="weather-content">
+                <div class="weather-details">
+                    {% if user.is_authenticated %}
+                        {% if user.favorite_cities %}
+                            <div class="favorite-cities">
+                                <h3>Your Favorite Cities</h3>
+                                <div class="favorite-grid">
+                                    {% for weather in favorite_weather %}
+                                        <div class="favorite-weather-card">
+                                            <a href="{% url 'weather' %}?city={{ weather.city }}&units={% if units == 'F' %}imperial{% else %}metric{% endif %}" class="favorite-city">
+                                                <i class="fas fa-star"></i>
+                                                {{ weather.city }}
+                                            </a>
+                                            <div class="favorite-weather-info">
+                                                <img src="https://openweathermap.org/img/wn/{{ weather.icon }}.png" alt="Weather icon">
+                                                <span class="temp">{{ weather.temp }}°{{ units }}</span>
+                                                <span class="status">{{ weather.status }}</span>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
                                 </div>
-                            {% endfor %}
+                            </div>
+                        {% endif %}
+                    {% endif %}
+
+                    <form action="{% url 'weather' %}" method="GET" class="search-form" id="weatherForm">
+                        <div class="search-container">
+                            <input type="text" 
+                                   name="city" 
+                                   id="city" 
+                                   placeholder="Search for a city..."
+                                   list="city-suggestions"
+                                   autocomplete="off"
+                                   required>
+                            <datalist id="city-suggestions"></datalist>
+                            <button type="submit" id="submitBtn" class="search-btn">
+                                <i class="fas fa-search"></i>
+                            </button>
                         </div>
-                    </div>
-                {% endif %}
-            {% endif %}
 
-            <form action="{% url 'weather' %}" id="weather-form" class="search-form" method="GET">
-                <div class="search-container">
-                    <input type="text" 
-                           name="city" 
-                           id="city" 
-                           placeholder="Search for a city..."
-                           list="city-suggestions"
-                           autocomplete="off"
-                           required>
-                    <datalist id="city-suggestions"></datalist>
-                    <button type="submit" id="submit-btn" class="search-btn">
-                        <i class="fas fa-search"></i>
-                    </button>
+                        <div class="form-actions">
+                            <button type="button" id="locationBtn" class="location-btn">
+                                📍 Use My Location
+                            </button>
+                            <input type="hidden" name="units" id="units" value="{% if units == 'F' %}imperial{% else %}metric{% endif %}">
+                        </div>
+                    </form>
+
+                    <nav class="view-toggle">
+                        <a href="#" class="active" id="currentView">Current Weather</a>
+                        <a href="#" id="forecastView">5-Day Forecast</a>
+                    </nav>
+
+                    {% if not user.is_authenticated %}
+                        <div class="auth-prompt">
+                            <p>
+                                <i class="fas fa-info-circle"></i>
+                                Login or register to save your favorite cities!
+                            </p>
+                        </div>
+                    {% endif %}
                 </div>
 
-                <div class="form-actions">
-                    <button type="button" id="get-location" class="location-btn">
-                        📍 Use My Location
-                    </button>
-                    
-                    <div class="units-toggle">
-                        <select name="units" id="units">
-                            <option value="imperial">°F (Fahrenheit)</option>
-                            <option value="metric">°C (Celsius)</option>
-                        </select>
+                <div class="map-section">
+                    <div class="map-container">
+                        <div id="map" class="map"></div>
                     </div>
                 </div>
-            </form>
-
-            <nav class="view-toggle">
-                <a href="{% url 'weather' %}" class="active">Current Weather</a>
-                <a href="{% url 'forecast' %}">5-Day Forecast</a>
-            </nav>
-
-            {% if not user.is_authenticated %}
-                <div class="auth-prompt">
-                    <p>
-                        <i class="fas fa-info-circle"></i>
-                        Login or register to save your favorite cities!
-                    </p>
-                </div>
-            {% endif %}
+            </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/build/ol.js"></script>
     {% load static %}
     <script src="{% static 'scripts/map.js' %}"></script>
-    <script src="{% static 'scripts/app.js' %}" data-api-key="{{ WEATHER_API_KEY }}" defer></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const mapElement = document.getElementById('map');
+            const CONFIG = JSON.parse(document.getElementById('appConfig').textContent);
+            
+            // Initialize map
             const apiKey = document.querySelector('script[data-api-key]').dataset.apiKey;
-            const coordinates = JSON.parse(mapElement.dataset.coordinates);
-            const zoom = parseInt(mapElement.dataset.zoom, 10);
-            initMap(apiKey, 'map', coordinates, zoom);
+            initMap(apiKey, 'map', CONFIG.mapCenter, CONFIG.mapZoom);
+
+            // Handle location button
+            const locationBtn = document.getElementById('locationBtn');
+            if (locationBtn) {
+                locationBtn.addEventListener('click', function() {
+                    if (!navigator.geolocation) {
+                        alert('Geolocation is not supported by your browser');
+                        return;
+                    }
+
+                    this.disabled = true;
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Getting Location...';
+                    
+                    navigator.geolocation.getCurrentPosition(
+                        function(position) {
+                            window.location.href = `/get-location-weather/?lat=${position.coords.latitude}&lon=${position.coords.longitude}&units=${CONFIG.units}`;
+                        },
+                        function(error) {
+                            locationBtn.disabled = false;
+                            locationBtn.innerHTML = '📍 Use My Location';
+                            alert('Error getting location: ' + error.message);
+                        }
+                    );
+                });
+            }
+
+            // Handle units toggle
+            window.updateUnits = function(value) {
+                fetch('/set-units/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CONFIG.csrfToken
+                    },
+                    body: JSON.stringify({ units: value })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        window.location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error updating units. Please try again.');
+                });
+            };
+
+            // Form submission handler
+            const weatherForm = document.getElementById('weatherForm');
+            const submitBtn = document.getElementById('submitBtn');
+            if (weatherForm && submitBtn) {
+                weatherForm.addEventListener('submit', function() {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                });
+            }
         });
     </script>
+    <script src="{% static 'scripts/app.js' %}" data-api-key="{{ WEATHER_API_KEY }}" defer></script>
 </body>
 </html>
